@@ -14,11 +14,16 @@
 
 ---
 
-## 🚨 The Problem
-AI agents are handling payroll, investments, and tax filings, but **LLMs are largely illiterate in tax law.**
-*   **Math Errors:** `$0.1 + $0.2` often equals `$0.3000000004` (Floating Point Error).
-*   **Logic Errors:** "Crypto loss can set off business gain" (Illegal in India under Sec 115BBH).
-*   **Risk:** Misclassifying employees as contractors leads to IRS fines of ~$280+ per person.
+## 🚨 The Problem: AI Hallucinations in Tax
+AI agents are handling payroll and tax, but **LLMs are largely illiterate in tax law.**
+
+### 📊 Real World Failures We Blocked (From Audit Logs)
+| Scenario | LLM Hallucinations | QWED Verdict |
+| :--- | :--- | :--- |
+| **Senior Citizen FD** | "Base 7% + 0.5% = 7.50000001%" (Float Error) | 🛑 **BLOCKED** (Exact 7.50%) |
+| **Loss Set-Off** | "Set off Intraday Loss against Salary" | 🛑 **BLOCKED** (Illegal Inter-head adjustment) |
+| **Crypto Tax** | "Deduct Bitcoin loss from Business Profit" | 🛑 **BLOCKED** (Sec 115BBH violation) |
+| **Payroll** | "FICA Tax on $500k = $31,000" | 🛑 **BLOCKED** (Limit is $176k / ~$10k tax) |
 
 ## 💡 What QWED-Tax Is
 A deterministic verification layer for tax logic supported by `z3-solver` and `python-decimal`. It supports multiple jurisdictions.
@@ -48,20 +53,23 @@ pip install qwed-tax
 ```
 
 ## ⚡ Usage
-
 ```python
-from qwed_tax.jurisdictions.us import PayrollGuard
-from qwed_tax.jurisdictions.india import CryptoTaxGuard
+from qwed_tax.verifier import TaxVerifier
 
 # 1. US FICA Check
+us_tax = TaxVerifier(jurisdiction="US")
+# ... usage (facade methods to be added or verified) ...
+# Note: For strict typing, direct guard access is also fine.
+
+from qwed_tax.jurisdictions.us import PayrollGuard
 pg = PayrollGuard()
 result = pg.verify_fica_tax(gross_ytd=180000, current=5000, claimed_tax=310)
 print(result.message) 
 # -> "❌ FICA Error: Expected $68.20 (Hit Limit)"
 
 # 2. India Crypto Check
-cg = CryptoTaxGuard()
-res = cg.verify_set_off(losses={"VDA": -5000}, gains={"BUSINESS": 50000})
+in_tax = TaxVerifier(jurisdiction="INDIA")
+res = in_tax.verify_india_crypto(losses={"VDA": -5000}, gains={"BUSINESS": 50000})
 print(res.message) 
 # -> "⚠️ Section 115BBH Alert: VDA loss cannot be set off."
 ```

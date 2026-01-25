@@ -43,6 +43,14 @@ class PaymentType(str, Enum):
     ATTORNEY_FEES = "ATTORNEY"
     HEALTHCARE = "HEALTHCARE"
 
+class WorkerClassificationParams(BaseModel):
+    worker_id: str
+    # ABC Test Criteria
+    freedom_from_control: bool # A: Is worker free from control?
+    work_outside_usual_business: bool # B: Is work outside usual business?
+    customarily_engaged_independently: bool # C: Does worker have own independent business?
+    state: State
+
 class ContractorPayment(BaseModel):
     contractor_id: str
     payment_type: PaymentType

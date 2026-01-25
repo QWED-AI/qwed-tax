@@ -1,11 +1,7 @@
-<<<<<<< HEAD
-# qwed-tax
-Death, Taxes, and Deterministic Verification.
-=======
 <div align="center">
 
 # 💸 QWED-Tax
-**Deterministic Verification for Payroll & Tax Compliance**
+**Deterministic Verification for Payroll, Tax, and Compliance**
 
 > "Death, Taxes, and Deterministic Verification."
 
@@ -19,23 +15,53 @@ Death, Taxes, and Deterministic Verification.
 ---
 
 ## 🚨 The Problem
-AI agents are handling payroll. **LLMs are notoriously bad at math.**
-*   `$0.1 + $0.2` often equals `$0.3000000004` (Floating Point Error).
-*   Miscalculating withholdings leads to IRS fines (approx $280 per misclassified employee).
+AI agents are handling payroll, investments, and tax filings, but **LLMs are largely illiterate in tax law.**
+*   **Math Errors:** `$0.1 + $0.2` often equals `$0.3000000004` (Floating Point Error).
+*   **Logic Errors:** "Crypto loss can set off business gain" (Illegal in India under Sec 115BBH).
+*   **Risk:** Misclassifying employees as contractors leads to IRS fines of ~$280+ per person.
 
 ## 💡 What QWED-Tax Is
-A deterministic verification layer for tax logic.
-*   **Engine:** `python-decimal` for exact currency math.
-*   **Logic:** `z3-solver` for W-2 vs 1099 classification rules.
-*   **Data:** 2025/2026 Tax Brackets (Embedded).
+A deterministic verification layer for tax logic supported by `z3-solver` and `python-decimal`. It supports multiple jurisdictions.
+
+| Feature | US Jurisdiction (IRS) 🇺🇸 | India Jurisdiction (CBDT) 🇮🇳 |
+| :--- | :--- | :--- |
+| **Engine** | `z3` (ABC Test), `decimal` | `z3` (Intraday Rules), `decimal` |
+| **Key Guards** | Payroll, FICA Limit, W-2/1099 | Sec 115BBH (Crypto), GST (RCM) |
+| **Status** | ✅ Production Ready | ✅ Production Ready |
 
 ## 🛡️ The Guards
-1.  **PayrollGuard**: Verifies Gross-to-Net calculations (Fed/State/FICA).
-2.  **WithholdingGuard**: Verifies W-4 claims against IRS Pub 15-T.
-3.  **ClassificationGuard**: Prevents 1099 misclassification using Common Law rules.
+
+### 🇺🇸 United States (IRS)
+1.  **PayrollGuard**: Verifies Gross-to-Net logic and enforces **2025 FICA Limit** ($176,100).
+2.  **ClassificationGuard (ABC Test)**: Uses Z3 to proof W-2 vs 1099 status.
+3.  **ReciprocityGuard**: Deterministically verifies state tax withholding (NY vs NJ rules).
+
+### 🇮🇳 India (Income Tax / GST)
+1.  **CryptoTaxGuard**: Enforces **Section 115BBH** (No set-off of VDA losses).
+2.  **InvestmentGuard**: Distinguishes **Intraday (Speculative)** from **Delivery (Capital Gains)** using strict rules.
+3.  **GSTGuard**: Verifies **Reverse Charge Mechanism (RCM)** for GTA/Legal services.
 
 ## 📦 Installation
+
 ```bash
 pip install qwed-tax
 ```
->>>>>>> 84c5d51 (feat: initial commit of qwed-tax with PayrollGuard and WithholdingGuard)
+
+## ⚡ Usage
+
+```python
+from qwed_tax.jurisdictions.us import PayrollGuard
+from qwed_tax.jurisdictions.india import CryptoTaxGuard
+
+# 1. US FICA Check
+pg = PayrollGuard()
+result = pg.verify_fica_tax(gross_ytd=180000, current=5000, claimed_tax=310)
+print(result.message) 
+# -> "❌ FICA Error: Expected $68.20 (Hit Limit)"
+
+# 2. India Crypto Check
+cg = CryptoTaxGuard()
+res = cg.verify_set_off(losses={"VDA": -5000}, gains={"BUSINESS": 50000})
+print(res.message) 
+# -> "⚠️ Section 115BBH Alert: VDA loss cannot be set off."
+```

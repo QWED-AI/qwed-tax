@@ -21,13 +21,13 @@ AI agents are handling payroll and tax, but **LLMs are largely illiterate in tax
 
 ```mermaid
 graph TD
-    A[🤖 AI Agent] -->|1. Intent (Pay/Tax)| B{🛡️ QWED-Tax Pre-Flight}
+    A["🤖 AI Agent"] -->|"1. Intent (Pay/Tax)"| B{"🛡️ QWED-Tax Pre-Flight"}
     B -->|Check| C[ClassificationGuard]
     B -->|Check| D[NexusGuard]
     B -->|Check| E[PayrollGuard]
-    C & D & E -->|2. Audit Result| B
-    B -- ✅ Verified --> F[🚀 Fintech API (Avalara/Gusto)]
-    B -- 🛑 Blocked --> G[🚫 Stop & Throw Error]
+    C & D & E -->|"2. Audit Result"| B
+    B -- "✅ Verified" --> F["🚀 Fintech API (Avalara/Gusto)"]
+    B -- "🛑 Blocked" --> G["🚫 Stop & Throw Error"]
     
     style B fill:#00C853,stroke:#333,stroke-width:2px,color:white
     style G fill:#ff4444,stroke:#333,stroke-width:2px,color:white

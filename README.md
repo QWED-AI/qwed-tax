@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+# qwed-tax
+Death, Taxes, and Deterministic Verification.
+=======
 <div align="center">
 
 # 💸 QWED-Tax
@@ -34,3 +38,4 @@ A deterministic verification layer for tax logic.
 ```bash
 pip install qwed-tax
 ```
+>>>>>>> 84c5d51 (feat: initial commit of qwed-tax with PayrollGuard and WithholdingGuard)

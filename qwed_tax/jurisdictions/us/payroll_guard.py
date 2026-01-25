@@ -1,5 +1,5 @@
 from decimal import Decimal, getcontext
-from .models import PayrollEntry, VerificationResult
+from ...models import PayrollEntry, VerificationResult
 
 # Set precision high enough for currency
 getcontext().prec = 28

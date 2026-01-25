@@ -1,5 +1,5 @@
 from z3 import *
-from .models import WorkerClassificationParams, State
+from ...models import WorkerClassificationParams, State
 
 class ClassificationGuard:
     """

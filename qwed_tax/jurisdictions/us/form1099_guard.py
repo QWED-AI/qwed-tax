@@ -1,5 +1,5 @@
 from decimal import Decimal
-from .models import ContractorPayment, PaymentType
+from ...models import ContractorPayment, PaymentType
 
 class Form1099Guard:
     """

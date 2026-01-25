@@ -1,5 +1,5 @@
 from z3 import *
-from .models import WorkArrangement, State
+from ...models import WorkArrangement, State
 
 class ReciprocityGuard:
     """

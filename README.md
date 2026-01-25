@@ -17,6 +17,25 @@
 ## 🚨 The Problem: AI Hallucinations in Tax
 AI agents are handling payroll and tax, but **LLMs are largely illiterate in tax law.**
 
+## 🏗️ Architecture: The "Swiss Cheese" Defense
+
+```mermaid
+graph TD
+    A[🤖 AI Agent] -->|1. Intent (Pay/Tax)| B{🛡️ QWED-Tax Pre-Flight}
+    B -->|Check| C[ClassificationGuard]
+    B -->|Check| D[NexusGuard]
+    B -->|Check| E[PayrollGuard]
+    C & D & E -->|2. Audit Result| B
+    B -- ✅ Verified --> F[🚀 Fintech API (Avalara/Gusto)]
+    B -- 🛑 Blocked --> G[🚫 Stop & Throw Error]
+    
+    style B fill:#00C853,stroke:#333,stroke-width:2px,color:white
+    style G fill:#ff4444,stroke:#333,stroke-width:2px,color:white
+```
+
+### ⚔️ Why QWED-Tax?
+Unlike calculators (Avalara) or executors (Gusto), QWED is a **Verifier**. We sit *between* the AI and the Execution.
+
 ### ⚔️ Why QWED-Tax?
 
 | Solution | What They Do | The Risk | QWED's Role |
@@ -46,8 +65,9 @@ A deterministic verification layer for tax logic supported by `z3-solver` and `p
 
 ### 🇺🇸 United States (IRS)
 1.  **PayrollGuard**: Verifies Gross-to-Net logic and enforces **2025 FICA Limit** ($176,100).
-2.  **ClassificationGuard (ABC Test)**: Uses Z3 to proof W-2 vs 1099 status.
+2.  **ClassificationGuard (IRS Common Law)**: Uses deterministic rules to verify W-2 vs 1099 status.
 3.  **ReciprocityGuard**: Deterministically verifies state tax withholding (NY vs NJ rules).
+4.  **NexusGuard**: Verifies **Economic Nexus** thresholds ($100k/$500k sales) to catch missing tax liabilities.
 
 ### 🇮🇳 India (Income Tax / GST)
 1.  **CryptoTaxGuard**: Enforces **Section 115BBH** (No set-off of VDA losses).
@@ -80,4 +100,18 @@ in_tax = TaxVerifier(jurisdiction="INDIA")
 res = in_tax.verify_india_crypto(losses={"VDA": -5000}, gains={"BUSINESS": 50000})
 print(res.message) 
 # -> "⚠️ Section 115BBH Alert: VDA loss cannot be set off."
+
+# 3. Pre-Flight Check (Agentic Finance)
+from qwed_tax.verifier import TaxPreFlight
+
+preflight = TaxPreFlight()
+report = preflight.audit_transaction({
+    "worker_type": "1099",
+    "worker_facts": {"provides_tools": True, "reimburses_expenses": True}, # Employee traits
+    "state": "NY", 
+    "sales_data": {"amount": 600000} # Crosses Nexus
+})
+
+if not report["allowed"]:
+    print(f"🛑 BLOCKED: {report['blocks']}")
 ```

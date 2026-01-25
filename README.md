@@ -17,6 +17,14 @@
 ## 🚨 The Problem: AI Hallucinations in Tax
 AI agents are handling payroll and tax, but **LLMs are largely illiterate in tax law.**
 
+### ⚔️ Why QWED-Tax?
+
+| Solution | What They Do | The Risk | QWED's Role |
+| :--- | :--- | :--- | :--- |
+| **Avalara / Stripe** | **Calculate** tax based on inputs. | Garbage In, Garbage Out. If AI sends wrong input, tax is wrong. | **The Filter:** We verify inputs *before* API calls. |
+| **Gusto / Check** | **Execute** payments and filings. | They execute erroneous commands (e.g., paying a W-2 as 1099). | **The Shield:** We block illegal payments *before* execution. |
+| **Blue J / ChatGPT** | **Research** tax law. | Hallucination (85% accuracy). | **The Proof:** We verify the math & logic deterministically. |
+
 ### 📊 Real World Failures We Blocked (From Audit Logs)
 | Scenario | LLM Hallucinations | QWED Verdict |
 | :--- | :--- | :--- |

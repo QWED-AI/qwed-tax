@@ -11,12 +11,12 @@ class RelatedPartyGuard:
         Deterministic verification of Loans to Directors (Section 185).
         """
         # Prohibited Roles (Companies Act 2013 Sec 185 / Generic Corporate Governance)
-        prohibited_roles = ["DIRECTOR", "DIRECTOR_RELATIVE", "PARTNER"]
+        prohibited_roles = ["DIRECTOR", "DIRECTOR_RELATIVE", "PARTNER", "PARTNER_OF_DIRECTOR"]
         
         borrower_clean = borrower_role.upper().replace(" ", "_")
         
         # Rule 1: Absolute Prohibition (unless exempted)
-        if borrower_clean in prohibited_roles:
+        if any(role in borrower_clean for role in prohibited_roles):
             # Check Exemptions would go here (e.g. is_managing_director & employee_scheme)
             # For now, default to BLOCK high risk.
             return {

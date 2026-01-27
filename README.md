@@ -102,10 +102,14 @@ A deterministic verification layer for tax logic supported by `z3-solver` and `p
 3.  **ReciprocityGuard**: Deterministically verifies state tax withholding (NY vs NJ rules).
 4.  **NexusGuard**: Verifies **Economic Nexus** thresholds ($100k/$500k sales) to catch missing tax liabilities.
 
-### 🇮🇳 India (Income Tax / GST)
+### 🇮🇳 India (Income Tax / GST / FEMA)
 1.  **CryptoTaxGuard**: Enforces **Section 115BBH** (No set-off of VDA losses).
 2.  **InvestmentGuard**: Distinguishes **Intraday (Speculative)** from **Delivery (Capital Gains)** using strict rules.
 3.  **GSTGuard**: Verifies **Reverse Charge Mechanism (RCM)** for GTA/Legal services.
+4.  **RemittanceGuard (FEMA)**:
+    *   **LRS Limit**: Enforces $250,000 annual limit per PAN.
+    *   **Prohibited**: Blocks Gambling, Lottery, and Racing remittances.
+    *   **TCS**: Applies 20% Tax Collected at Source on generic investments/tours.
 
 ## 📦 Installation
 

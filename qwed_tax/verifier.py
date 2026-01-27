@@ -2,6 +2,7 @@ from .guards.speculation_guard import SpeculationGuard
 from .guards.capital_gains_guard import CapitalGainsGuard
 from .guards.related_party_guard import RelatedPartyGuard
 from .guards.valuation_guard import ValuationGuard
+from .guards.remittance_guard import RemittanceGuard
 
 class TaxPreFlight:
     """
@@ -16,12 +17,13 @@ class TaxPreFlight:
         self.cg = CapitalGainsGuard()
         self.related_party = RelatedPartyGuard()
         self.valuation = ValuationGuard()
+        self.remittance = RemittanceGuard()
 
     def audit_transaction(self, intent: Dict[str, Any]) -> Dict[str, Any]:
         """
         The 'Pre-Flight' Check for Agentic Finance.
         intent = {
-            "action": "pay_invoice" | "trade_tax" | "corporate_action",
+            "action": "pay_invoice" | "trade_tax" | "corporate_action" | "remit_money",
             ...
         }
         """
@@ -86,13 +88,24 @@ class TaxPreFlight:
         if "investment_round" in intent and intent["investment_round"] == "convertible_note":
              val_check = self.valuation.verify_conversion(
                  intent.get("investment_amount", "0"),
-                 intent.get("cap_price", "0"), # Assumes Price Cap, not Val Cap for simplicity
+                 intent.get("cap_price", "0"), # Assumes Price Cap
                  intent.get("discount", "0"),
                  intent.get("next_round_price", "0")
              )
              if not val_check["verified"]:
                  report["allowed"] = False
                  report["blocks"].append(val_check["error"])
+
+        # Check 7: International Remittance (LRS/TCS)
+        if "remittance_amount_usd" in intent and "purpose" in intent:
+             remit_check = self.remittance.verify_lrs_limit(
+                 intent["remittance_amount_usd"],
+                 intent["purpose"],
+                 intent.get("fy_usage", 0)
+             )
+             if not remit_check["verified"]:
+                 report["allowed"] = False
+                 report["blocks"].append(remit_check["error"])
 
         return report
 

@@ -11,6 +11,9 @@ from .jurisdictions.india.guards.gst_guard import GSTGuard
 from .jurisdictions.india.guards.deposit_guard import DepositRateGuard
 from .jurisdictions.india.guards.setoff_guard import InterHeadAdjustmentGuard
 
+from .guards.speculation_guard import SpeculationGuard
+from .guards.capital_gains_guard import CapitalGainsGuard
+
 class TaxPreFlight:
     """
     The 'Swiss Cheese' Defense Layer for Agentic Finance.
@@ -20,23 +23,20 @@ class TaxPreFlight:
     def __init__(self):
         self.classifier = ClassificationGuard()
         self.nexus = NexusGuard()
-        # self.payroll = PayrollGuard() # Can be added if needed
+        self.speculation = SpeculationGuard()
+        self.cg = CapitalGainsGuard()
 
     def audit_transaction(self, intent: Dict[str, Any]) -> Dict[str, Any]:
         """
         The 'Pre-Flight' Check for Agentic Finance.
         intent = {
-            "action": "pay_invoice",
-            "worker_type": "1099",
-            "state": "NY",
-            "sales_data": {"amount": 600000},
-            "worker_facts": {...}
+            "action": "pay_invoice" | "trade_tax",
             ...
         }
         """
         report = {"allowed": True, "blocks": []}
 
-        # Check 1: Worker Classification
+        # Check 1: Worker Classification (Payroll)
         if "worker_facts" in intent and "worker_type" in intent:
             class_check = self.classifier.verify_classification_claim(
                 intent["worker_type"], intent["worker_facts"]
@@ -45,9 +45,8 @@ class TaxPreFlight:
                 report["allowed"] = False
                 report["blocks"].append(class_check["error"])
 
-        # Check 2: Economic Nexus
+        # Check 2: Economic Nexus (Sales)
         if "sales_data" in intent and "state" in intent:
-            # Default to "no_tax" decision if not provided, to trigger check if threshold crossed
             tax_decision = intent.get("tax_decision", "no_tax")
             nexus_check = self.nexus.check_nexus_liability(
                 intent["state"], 
@@ -58,6 +57,30 @@ class TaxPreFlight:
             if not nexus_check["verified"]:
                 report["allowed"] = False
                 report["blocks"].append(nexus_check["error"])
+
+        # Check 3: Trader Set-Off (Investments)
+        if "loss_head" in intent and "offset_head" in intent:
+            setoff = self.speculation.verify_setoff(
+                intent["loss_head"], 
+                intent.get("loss_amount", 0), 
+                intent["offset_head"]
+            )
+            if not setoff["verified"]:
+                report["allowed"] = False
+                report["blocks"].append(setoff["error"] + " " + setoff.get("fix", ""))
+
+        # Check 4: Capital Gains Rates (Investments)
+        if "asset_type" in intent and "dates" in intent:
+            # First determine term
+            dates = intent["dates"]
+            term = self.cg.determine_term(dates["buy"], dates["sell"], intent["asset_type"])
+            
+            # Then check rate if provided
+            if "claimed_rate" in intent:
+                rate_check = self.cg.verify_tax_rate(intent["asset_type"], term, intent["claimed_rate"])
+                if not rate_check["verified"]:
+                    report["allowed"] = False
+                    report["blocks"].append(rate_check["error"])
 
         return report
 

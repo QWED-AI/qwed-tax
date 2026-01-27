@@ -118,6 +118,9 @@ A deterministic verification layer for tax logic supported by `z3-solver` and `p
     *   **LRS Limit**: Enforces $250,000 annual limit per PAN.
     *   **Prohibited**: Blocks Gambling, Lottery, and Racing remittances.
     *   **TCS**: Applies 20% Tax Collected at Source on generic investments/tours.
+5.  **Accounts Payable Guards**:
+    *   **InputCreditGuard**: Blocks ITC on 'Blocked List' (Sec 17(5)) like Food/Motor Vehicles.
+    *   **TDSGuard**: Enforces withholding tax (1% vs 10%) on Contractor/Professional payments.
 
 ## 📦 Installation
 
@@ -146,7 +149,13 @@ res = in_tax.verify_india_crypto(losses={"VDA": -5000}, gains={"BUSINESS": 50000
 print(res.message) 
 # -> "⚠️ Section 115BBH Alert: VDA loss cannot be set off."
 
-# 3. Pre-Flight Check (Agentic Finance)
+## 🧾 Accounts Payable (AP) Automation
+`qwed-tax` now secures the entire "Procure-to-Pay" cycle for AI Agents:
+*   **Validation:** Checks GSTIN/VAT ID formats.
+*   **Compliance:** Blocks Input Tax Credit (ITC) on "Personal" categories (Food, Cars, Gifts).
+*   **Withholding:** Auto-calculates TDS/Retention amounts before commercial payment.
+
+## ⚡ Usage
 from qwed_tax.verifier import TaxPreFlight
 
 preflight = TaxPreFlight()

@@ -1,8 +1,20 @@
+from typing import Dict, Any
+from decimal import Decimal
 from .guards.speculation_guard import SpeculationGuard
 from .guards.capital_gains_guard import CapitalGainsGuard
 from .guards.related_party_guard import RelatedPartyGuard
 from .guards.valuation_guard import ValuationGuard
 from .guards.remittance_guard import RemittanceGuard
+from .guards.indirect_tax_guard import InputCreditGuard
+from .guards.tds_guard import TDSGuard
+from .guards.classification_guard import ClassificationGuard
+from .guards.nexus_guard import NexusGuard
+from .guards.payroll_guard import PayrollGuard
+from .guards.crypto_tax_guard import CryptoTaxGuard
+from .guards.investment_guard import InvestmentGuard
+from .guards.gst_guard import GSTGuard
+from .guards.deposit_rate_guard import DepositRateGuard
+from .guards.inter_head_adjustment_guard import InterHeadAdjustmentGuard
 
 class TaxPreFlight:
     """
@@ -18,12 +30,14 @@ class TaxPreFlight:
         self.related_party = RelatedPartyGuard()
         self.valuation = ValuationGuard()
         self.remittance = RemittanceGuard()
+        self.indirect_tax = InputCreditGuard()
+        self.withholding = TDSGuard()
 
     def audit_transaction(self, intent: Dict[str, Any]) -> Dict[str, Any]:
         """
         The 'Pre-Flight' Check for Agentic Finance.
         intent = {
-            "action": "pay_invoice" | "trade_tax" | "corporate_action" | "remit_money",
+            "action": "pay_invoice" | "trade_tax" | "corporate_action" | "remit_money" | "expense_claim",
             ...
         }
         """
@@ -106,6 +120,29 @@ class TaxPreFlight:
              if not remit_check["verified"]:
                  report["allowed"] = False
                  report["blocks"].append(remit_check["error"])
+
+        # Check 8: Accounts Payable (Expense/TDS)
+        if "expense_category" in intent and "amount" in intent:
+             # ITC Check
+             itc_check = self.indirect_tax.verify_itc_eligibility(
+                 intent["expense_category"],
+                 intent.get("amount", 0),
+                 intent.get("tax_paid", 0)
+             )
+             if not itc_check["verified"]:
+                 report["allowed"] = False
+                 report["blocks"].append(itc_check["reason"])
+             
+             # TDS Check (if service type provided)
+             if "service_type" in intent:
+                 tds_check = self.withholding.calculate_deduction(
+                     intent["service_type"],
+                     intent.get("amount", 0),
+                     intent.get("ytd_payment", 0)
+                 )
+                 if tds_check.get("deduction") and Decimal(tds_check["deduction"]) > 0:
+                     report["advisories"] = report.get("advisories", [])
+                     report["advisories"].append(f"TDS Required: Deduct {tds_check['deduction']} from payment.")
 
         return report
 

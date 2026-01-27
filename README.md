@@ -21,16 +21,49 @@ AI agents are handling payroll and tax, but **LLMs are largely illiterate in tax
 
 ```mermaid
 graph TD
-    A["🤖 AI Agent"] -->|"1. Intent (Pay/Tax)"| B{"🛡️ QWED-Tax Pre-Flight"}
-    B -->|Check| C[ClassificationGuard]
-    B -->|Check| D[NexusGuard]
-    B -->|Check| E[PayrollGuard]
-    C & D & E -->|"2. Audit Result"| B
+    A["🤖 AI Agent"] -->|"Intent"| B{"🛡️ QWED-Tax Pre-Flight"}
+    
+    subgraph "Deterministic Guards"
+    C[Personal Tax<br/>(Payroll, 1099 vs W2)]
+    D[Trading Tax<br/>(F&O, Crypto, STCG)]
+    E[Corporate Tax<br/>(Sec 185 Loans, Valuations)]
+    end
+    
+    B --> C & D & E
+    C & D & E -->|"Audit Result"| B
+    
     B -- "✅ Verified" --> F["🚀 Fintech API (Avalara/Gusto)"]
     B -- "🛑 Blocked" --> G["🚫 Stop & Throw Error"]
     
     style B fill:#00C853,stroke:#333,stroke-width:2px,color:white
     style G fill:#ff4444,stroke:#333,stroke-width:2px,color:white
+```
+
+## 🔒 Zero-Data Leakage
+Unlike cloud APIs check (Avalara/Vertex), `qwed-tax` runs **100% Locally**.
+*   **Privacy First:** Your payroll/trading data never leaves your server.
+*   **No API Latency:** Checks are instant (microseconds).
+*   **GDPR/DPDP Compliant:** Ideal for sensitive Fintech environments.
+
+## 🌐 TypeScript SDK (New!)
+Run compliance checks proactively in the browser/frontend.
+
+```bash
+npm install @qwed-ai/tax
+```
+
+```typescript
+import { TaxPreFlight } from '@qwed-ai/tax';
+
+const result = TaxPreFlight.audit({
+  action: "hire",
+  worker_type: "1099",
+  worker_facts: { provides_tools: true, reimburses_expenses: true } // implies Employee
+});
+
+if (!result.allowed) {
+   alert(" Compliance Block: " + result.blocks.join(", "));
+}
 ```
 
 ### ⚔️ Why QWED-Tax?

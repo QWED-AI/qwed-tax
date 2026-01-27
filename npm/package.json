@@ -1,0 +1,23 @@
+{
+    "name": "@qwed-ai/tax",
+    "version": "0.1.0",
+    "description": "Deterministic Tax Verification for Agentic Finance (Browser/Node)",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "test": "jest"
+    },
+    "keywords": [
+        "tax",
+        "compliance",
+        "deterministic",
+        "agentic-finance"
+    ],
+    "author": "QWED-AI",
+    "license": "Apache-2.0",
+    "devDependencies": {
+        "typescript": "^5.3.3",
+        "@types/node": "^20.11.0"
+    }
+}

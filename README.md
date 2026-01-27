@@ -24,9 +24,9 @@ graph TD
     A["🤖 AI Agent"] -->|"Intent"| B{"🛡️ QWED-Tax Pre-Flight"}
     
     subgraph "Deterministic Guards"
-    C[Personal Tax<br/>(Payroll, 1099 vs W2)]
-    D[Trading Tax<br/>(F&O, Crypto, STCG)]
-    E[Corporate Tax<br/>(Sec 185 Loans, Valuations)]
+    C["Personal Tax<br/>(Payroll, 1099 vs W2)"]
+    D["Trading Tax<br/>(F&O, Crypto, STCG)"]
+    E["Corporate Tax<br/>(Sec 185 Loans, Valuations)"]
     end
     
     B --> C & D & E

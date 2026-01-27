@@ -11,7 +11,7 @@ class RelatedPartyGuard:
         Deterministic verification of Loans to Directors (Section 185).
         """
         # Prohibited Roles (Companies Act 2013 Sec 185 / Generic Corporate Governance)
-        prohibited_roles = ["DIRECTOR", "DIRECTOR_RELATIVE", "PARTNER", "PARTNER_OF_DIRECTOR"]
+        prohibited_roles = ["DIRECTOR", "DIRECTOR_RELATIVE", "PARTNER", "PARTNER_OF_DIRECTOR", "HOLDING_COMPANY_DIRECTOR"]
         
         borrower_clean = borrower_role.upper().replace(" ", "_")
         

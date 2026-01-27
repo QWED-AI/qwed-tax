@@ -17,7 +17,7 @@ class RemittanceGuard:
         usage = Decimal(str(financial_year_usage))
         
         # 1. Prohibited Transactions Check (Schedule I)
-        prohibited_purposes = ["GAMBLING", "LOTTERY", "RACING", "BANNED_MAGAZINES", "SWEEPSTAKES"]
+        prohibited_purposes = ["GAMBLING", "LOTTERY", "RACING", "BANNED_MAGAZINES", "SWEEPSTAKES", "MARGIN_TRADING"]
         if any(p in purpose.upper() for p in prohibited_purposes):
             return {
                 "verified": False,

@@ -1,18 +1,7 @@
-from typing import Optional, Dict, Any
-from .jurisdictions.us.payroll_guard import PayrollGuard
-# New Guards are in .guards package as per recent update
-from .guards.classification_guard import ClassificationGuard
-from .guards.nexus_guard import NexusGuard
-
-# India Guards
-from .jurisdictions.india.guards.crypto_guard import CryptoTaxGuard
-from .jurisdictions.india.guards.investment_guard import InvestmentGuard
-from .jurisdictions.india.guards.gst_guard import GSTGuard
-from .jurisdictions.india.guards.deposit_guard import DepositRateGuard
-from .jurisdictions.india.guards.setoff_guard import InterHeadAdjustmentGuard
-
 from .guards.speculation_guard import SpeculationGuard
 from .guards.capital_gains_guard import CapitalGainsGuard
+from .guards.related_party_guard import RelatedPartyGuard
+from .guards.valuation_guard import ValuationGuard
 
 class TaxPreFlight:
     """
@@ -25,12 +14,14 @@ class TaxPreFlight:
         self.nexus = NexusGuard()
         self.speculation = SpeculationGuard()
         self.cg = CapitalGainsGuard()
+        self.related_party = RelatedPartyGuard()
+        self.valuation = ValuationGuard()
 
     def audit_transaction(self, intent: Dict[str, Any]) -> Dict[str, Any]:
         """
         The 'Pre-Flight' Check for Agentic Finance.
         intent = {
-            "action": "pay_invoice" | "trade_tax",
+            "action": "pay_invoice" | "trade_tax" | "corporate_action",
             ...
         }
         """
@@ -71,16 +62,37 @@ class TaxPreFlight:
 
         # Check 4: Capital Gains Rates (Investments)
         if "asset_type" in intent and "dates" in intent:
-            # First determine term
             dates = intent["dates"]
             term = self.cg.determine_term(dates["buy"], dates["sell"], intent["asset_type"])
-            
-            # Then check rate if provided
             if "claimed_rate" in intent:
                 rate_check = self.cg.verify_tax_rate(intent["asset_type"], term, intent["claimed_rate"])
                 if not rate_check["verified"]:
                     report["allowed"] = False
                     report["blocks"].append(rate_check["error"])
+
+        # Check 5: Corporate Loans (Section 185)
+        if "lender_type" in intent and "borrower_role" in intent:
+             loan_check = self.related_party.verify_loan_compliance(
+                 intent["lender_type"], 
+                 intent["borrower_role"], 
+                 intent.get("interest_rate", 0), 
+                 intent.get("market_rate", 0)
+             )
+             if not loan_check["verified"]:
+                 report["allowed"] = False
+                 report["blocks"].append(loan_check["message"])
+
+        # Check 6: Startup Valuation (Convertible Notes)
+        if "investment_round" in intent and intent["investment_round"] == "convertible_note":
+             val_check = self.valuation.verify_conversion(
+                 intent.get("investment_amount", "0"),
+                 intent.get("cap_price", "0"), # Assumes Price Cap, not Val Cap for simplicity
+                 intent.get("discount", "0"),
+                 intent.get("next_round_price", "0")
+             )
+             if not val_check["verified"]:
+                 report["allowed"] = False
+                 report["blocks"].append(val_check["error"])
 
         return report
 

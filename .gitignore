@@ -2,9 +2,12 @@
 __pycache__/
 *.py[codz]
 *$py.class
+*$py.class
 
-# C extensions
-*.so
+# JavaScript / Node
+node_modules/
+npm-debug.log
+yarn-error.log*.so
 
 # Distribution / packaging
 .Python

@@ -11,28 +11,6 @@
 [![NPM](https://img.shields.io/npm/v/@qwed-ai/tax?color=red&logo=npm&logoColor=white)](https://www.npmjs.com/package/@qwed-ai/tax)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
-...
-
-## 📂 Examples
-Check the `examples/` directory for runnable scripts:
-- `examples/demo_payroll.py`: US FICA & Payroll verification.
-- `examples/demo_advanced.py`: Complex Investment & Trading checks.
-
-## 🗺️ Roadmap
-We have a massive vision for Global Tax Verification.
-Check out our **[Detailed Roadmap](ROADMAP.md)** for 2026 plans including:
-- 🇬🇧 UK (HMRC) & 🇨🇦 Canada (CRA) Support
-- Transfer Pricing & BEPS Guards
-- ERP Integrations (SAP/Oracle)
-
-## 🤝 Contributing
-We welcome contributions from Tax Experts and Developers!
-See **[CONTRIBUTING.md](CONTRIBUTING.md)** for guidelines.
-
-## 📄 License
-Apache 2.0
-
-
 </div>
 
 ---
@@ -92,8 +70,6 @@ if (!result.allowed) {
 ### ⚔️ Why QWED-Tax?
 Unlike calculators (Avalara) or executors (Gusto), QWED is a **Verifier**. We sit *between* the AI and the Execution.
 
-### ⚔️ Why QWED-Tax?
-
 | Solution | What They Do | The Risk | QWED's Role |
 | :--- | :--- | :--- | :--- |
 | **Avalara / Stripe** | **Calculate** tax based on inputs. | Garbage In, Garbage Out. If AI sends wrong input, tax is wrong. | **The Filter:** We verify inputs *before* API calls. |
@@ -148,7 +124,6 @@ A deterministic verification layer for tax logic supported by `z3-solver` and `p
     *   **TDSGuard**: Enforces withholding tax (1% vs 10%) on Contractor/Professional payments.
 
 ## 📦 Installation
-
 ```bash
 pip install qwed-tax
 ```
@@ -160,7 +135,6 @@ from qwed_tax.verifier import TaxVerifier
 # 1. US FICA Check
 us_tax = TaxVerifier(jurisdiction="US")
 # ... usage (facade methods to be added or verified) ...
-# Note: For strict typing, direct guard access is also fine.
 
 from qwed_tax.jurisdictions.us import PayrollGuard
 pg = PayrollGuard()
@@ -179,8 +153,10 @@ print(res.message)
 *   **Validation:** Checks GSTIN/VAT ID formats.
 *   **Compliance:** Blocks Input Tax Credit (ITC) on "Personal" categories (Food, Cars, Gifts).
 *   **Withholding:** Auto-calculates TDS/Retention amounts before commercial payment.
+```
 
-## ⚡ Usage
+## ⚡ Usage (Frontend)
+```python
 from qwed_tax.verifier import TaxPreFlight
 
 preflight = TaxPreFlight()
@@ -194,3 +170,22 @@ report = preflight.audit_transaction({
 if not report["allowed"]:
     print(f"🛑 BLOCKED: {report['blocks']}")
 ```
+
+## 📂 Examples
+Check the `examples/` directory for runnable scripts:
+- `examples/demo_payroll.py`: US FICA & Payroll verification.
+- `examples/demo_advanced.py`: Complex Investment & Trading checks.
+
+## 🗺️ Roadmap
+We have a massive vision for Global Tax Verification.
+Check out our **[Detailed Roadmap](ROADMAP.md)** for 2026 plans including:
+- 🇬🇧 UK (HMRC) & 🇨🇦 Canada (CRA) Support
+- Transfer Pricing & BEPS Guards
+- ERP Integrations (SAP/Oracle)
+
+## 🤝 Contributing
+We welcome contributions from Tax Experts and Developers!
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for guidelines.
+
+## 📄 License
+Apache 2.0

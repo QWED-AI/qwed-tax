@@ -14,6 +14,13 @@ dependencies = [
     "colorama>=0.4.6",
 ]
 
+[project.urls]
+Homepage = "https://qwedai.com"
+Documentation = "https://docs.qwedai.com/tax"
+Repository = "https://github.com/QWED-AI/qwed-tax"
+Issues = "https://github.com/QWED-AI/qwed-tax/issues"
+Changelog = "https://github.com/QWED-AI/qwed-tax/blob/main/CHANGELOG.md"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",

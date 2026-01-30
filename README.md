@@ -6,10 +6,32 @@
 > "Death, Taxes, and Deterministic Verification."
 
 [![Verified by QWED](https://img.shields.io/badge/Verified_by-QWED-00C853?style=flat&logo=checkmarx)](https://github.com/QWED-AI/qwed-tax)
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Pending_Publish-orange?logo=github)](https://github.com/marketplace/qwed-security)
 [![PyPI](https://img.shields.io/pypi/v/qwed-tax?color=blue&logo=pypi&logoColor=white)](https://pypi.org/project/qwed-tax/)
 [![NPM](https://img.shields.io/npm/v/@qwed-ai/tax?color=red&logo=npm&logoColor=white)](https://www.npmjs.com/package/@qwed-ai/tax)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+
+...
+
+## 📂 Examples
+Check the `examples/` directory for runnable scripts:
+- `examples/demo_payroll.py`: US FICA & Payroll verification.
+- `examples/demo_advanced.py`: Complex Investment & Trading checks.
+
+## 🗺️ Roadmap
+We have a massive vision for Global Tax Verification.
+Check out our **[Detailed Roadmap](ROADMAP.md)** for 2026 plans including:
+- 🇬🇧 UK (HMRC) & 🇨🇦 Canada (CRA) Support
+- Transfer Pricing & BEPS Guards
+- ERP Integrations (SAP/Oracle)
+
+## 🤝 Contributing
+We welcome contributions from Tax Experts and Developers!
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for guidelines.
+
+## 📄 License
+Apache 2.0
+
 
 </div>
 

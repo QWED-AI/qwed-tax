@@ -93,7 +93,10 @@ Unlike standard calculators, `qwed-tax` verifies the **procedure**, not just the
 *   **Step 2: Limit Check** $\rightarrow$ Is it within quota? (e.g., `RemittanceGuard` checks LRS limit *before* TCS).
 *   **Step 3: Calculation** $\rightarrow$ Apply math.
 
-## 💡 What QWED-Tax Is
+## 💡 What QWED Tax Verification System
+![QWED Security](https://img.shields.io/badge/QWED-Secured-blueviolet)
+
+> **Enterprise-Grade Tax Code Verification Engine**
 A deterministic verification layer for tax logic supported by `z3-solver` and `python-decimal`. It supports multiple jurisdictions.
 
 | Feature | US Jurisdiction (IRS) 🇺🇸 | India Jurisdiction (CBDT) 🇮🇳 |

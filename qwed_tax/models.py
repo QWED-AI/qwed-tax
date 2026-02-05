@@ -79,3 +79,4 @@ class VerificationResult(BaseModel):
     recalculated_net_pay: Decimal
     discrepancy: Decimal
     message: str
+    verification_mode: str = "SYMBOLIC"  # Always SYMBOLIC for tax (Z3-powered)

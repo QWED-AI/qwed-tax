@@ -46,6 +46,8 @@ Unlike cloud APIs check (Avalara/Vertex), `qwed-tax` runs **100% Locally**.
 *   **No API Latency:** Checks are instant (microseconds).
 *   **GDPR/DPDP Compliant:** Ideal for sensitive Fintech environments.
 
+> 📖 **See [Determinism Guarantee](https://docs.qwedai.com/docs/engines/overview#deterministic-first-philosophy)** for how QWED ensures 100% reproducible verification.
+
 ## 🌐 TypeScript SDK (New!)
 Run compliance checks proactively in the browser/frontend.
 
@@ -182,6 +184,16 @@ Check out our **[Detailed Roadmap](ROADMAP.md)** for 2026 plans including:
 - 🇬🇧 UK (HMRC) & 🇨🇦 Canada (CRA) Support
 - Transfer Pricing & BEPS Guards
 - ERP Integrations (SAP/Oracle)
+
+## 📦 Related Packages
+
+| Package | Description |
+|---------|-------------|
+| [qwed-verification](https://github.com/QWED-AI/qwed-verification) | Core verification engine |
+| [qwed-finance](https://github.com/QWED-AI/qwed-finance) | Banking & derivatives verification |
+| [qwed-mcp](https://github.com/QWED-AI/qwed-mcp) | Claude Desktop integration |
+
+---
 
 ## 🤝 Contributing
 We welcome contributions from Tax Experts and Developers!

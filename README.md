@@ -6,6 +6,7 @@
 > "Death, Taxes, and Deterministic Verification."
 
 [![Verified by QWED](https://img.shields.io/badge/Verified_by-QWED-00C853?style=flat&logo=checkmarx)](https://github.com/QWED-AI/qwed-tax)
+[![100% Deterministic](https://img.shields.io/badge/100%25_Deterministic-QWED-0066CC?style=flat&logo=checkmarx)](https://docs.qwedai.com/docs/engines/overview#deterministic-first-philosophy)
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Pending_Publish-orange?logo=github)](https://github.com/marketplace/qwed-security)
 [![PyPI](https://img.shields.io/pypi/v/qwed-tax?color=blue&logo=pypi&logoColor=white)](https://pypi.org/project/qwed-tax/)
 [![NPM](https://img.shields.io/npm/v/@qwed-ai/tax?color=red&logo=npm&logoColor=white)](https://www.npmjs.com/package/@qwed-ai/tax)

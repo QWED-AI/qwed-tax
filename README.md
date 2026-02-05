@@ -202,3 +202,9 @@ See **[CONTRIBUTING.md](CONTRIBUTING.md)** for guidelines.
 
 ## 📄 License
 Apache 2.0
+
+---
+
+<div align="center">
+  <a href="https://snyk.io/test/github/QWED-AI/qwed-tax"><img src="https://snyk.io/test/github/QWED-AI/qwed-tax/badge.svg" alt="Known Vulnerabilities" /></a>
+</div>

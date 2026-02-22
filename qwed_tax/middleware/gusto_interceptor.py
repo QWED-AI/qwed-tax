@@ -35,7 +35,7 @@ class QWEDTaxMiddleware:
             }
         
         try:
-            payroll_entry = PayrollEntry(**payroll_entry_data)
+            payroll_entry = PayrollEntry.model_validate(payroll_entry_data)
         except ValidationError as exc:
             return {
                 "status": "BLOCKED",
@@ -45,7 +45,15 @@ class QWEDTaxMiddleware:
             }
         
         # Verify deterministic logic via the QWED tax verification engine
-        result = self.tax_verifier.verify_us_payroll(entry=payroll_entry)
+        try:
+            result = self.tax_verifier.verify_us_payroll(entry=payroll_entry)
+        except Exception as exc:
+            return {
+                "status": "BLOCKED",
+                "risk": "VERIFIER_ERROR",
+                "reason": f"Tax verifier raised an unexpected error: {exc}",
+                "execution_permitted": False,
+            }
         
         # Check the deterministic verification result
         if not result.verified:
@@ -62,5 +70,5 @@ class QWEDTaxMiddleware:
             "status": "VERIFIED",
             "message": "AI tax logic mathematically verified. Safe to execute.",
             "execution_permitted": True,
-            "validated_payload": payroll_entry.model_dump()
+            "validated_payload": payroll_entry.model_dump(mode="json")
         }

@@ -1,5 +1,6 @@
 from typing import Dict, Any
 from qwed_tax.verifier import TaxVerifier
+from qwed_tax.models import PayrollEntry
 
 class QWEDTaxMiddleware:
     """
@@ -23,18 +24,19 @@ class QWEDTaxMiddleware:
             A decision dictionary indicating whether execution is permitted.
         """
         # Extract the core payroll entry that needs mathematical validation
-        payroll_entry = ai_generated_payload.get("payroll_entry", {})
+        payroll_entry_data = ai_generated_payload.get("payroll_entry", {})
+        payroll_entry = PayrollEntry(**payroll_entry_data)
         
         # Verify deterministic logic via the QWED tax verification engine
         result = self.tax_verifier_engine.verify_gross_to_net(payroll_entry)
         
         # Check the deterministic verification result
-        if not result.get("verified", False):
+        if not result.verified:
             # The AI hallucinated math or tax rules. Block the outbound request.
             return {
                 "status": "BLOCKED",
                 "risk": "TAX_LOGIC_HALLUCINATION",
-                "reason": result.get("error", "Failed deterministic verification."),
+                "reason": result.message,
                 "execution_permitted": False
             }
             

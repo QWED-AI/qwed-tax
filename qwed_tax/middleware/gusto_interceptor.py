@@ -1,4 +1,5 @@
 from typing import Dict, Any
+from pydantic import ValidationError
 from qwed_tax.verifier import TaxVerifier
 from qwed_tax.models import PayrollEntry
 
@@ -9,8 +10,8 @@ class QWEDTaxMiddleware:
     and mathematically verifies the tax logic before allowing the API call to proceed.
     """
     def __init__(self):
-        # Initialize the US tax verifier engine, specifically grabbing the payroll guard.
-        self.tax_verifier_engine = TaxVerifier(jurisdiction="US").payroll
+        # Initialize the US tax verifier engine.
+        self.tax_verifier = TaxVerifier(jurisdiction="US")
 
     def process_ai_payroll_request(self, ai_generated_payload: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -24,11 +25,27 @@ class QWEDTaxMiddleware:
             A decision dictionary indicating whether execution is permitted.
         """
         # Extract the core payroll entry that needs mathematical validation
-        payroll_entry_data = ai_generated_payload.get("payroll_entry", {})
-        payroll_entry = PayrollEntry(**payroll_entry_data)
+        payroll_entry_data = ai_generated_payload.get("payroll_entry")
+        if not payroll_entry_data:
+            return {
+                "status": "BLOCKED",
+                "risk": "INVALID_PAYLOAD",
+                "reason": "Missing or empty 'payroll_entry' in payload.",
+                "execution_permitted": False,
+            }
+        
+        try:
+            payroll_entry = PayrollEntry(**payroll_entry_data)
+        except ValidationError as exc:
+            return {
+                "status": "BLOCKED",
+                "risk": "INVALID_PAYLOAD",
+                "reason": f"Payload failed schema validation: {exc}",
+                "execution_permitted": False,
+            }
         
         # Verify deterministic logic via the QWED tax verification engine
-        result = self.tax_verifier_engine.verify_gross_to_net(payroll_entry)
+        result = self.tax_verifier.verify_us_payroll(entry=payroll_entry)
         
         # Check the deterministic verification result
         if not result.verified:
@@ -45,5 +62,5 @@ class QWEDTaxMiddleware:
             "status": "VERIFIED",
             "message": "AI tax logic mathematically verified. Safe to execute.",
             "execution_permitted": True,
-            "validated_payload": ai_generated_payload
+            "validated_payload": payroll_entry.model_dump()
         }

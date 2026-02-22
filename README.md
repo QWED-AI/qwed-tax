@@ -206,5 +206,5 @@ Apache 2.0
 ---
 
 <div align="center">
-  <a href="https://snyk.io/test/github/QWED-AI/qwed-tax"><img src="https://snyk.io/test/github/QWED-AI/qwed-tax/badge.svg" alt="Known Vulnerabilities" /></a>
+  <a href="https://snyk.io"><img src="https://img.shields.io/badge/Security-Snyk-4C4A73?style=for-the-badge&logo=snyk&logoColor=white" alt="Secured by Snyk" /></a>
 </div>

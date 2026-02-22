@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator, PlainSerializer
+from pydantic import BaseModel, PlainSerializer
 from typing_extensions import Annotated
 from decimal import Decimal
 from typing import List, Optional, Literal
@@ -55,29 +55,31 @@ class WorkerClassificationParams(BaseModel):
 class ContractorPayment(BaseModel):
     contractor_id: str
     payment_type: PaymentType
-    amount: Annotated[Decimal, PlainSerializer(float, when_used="json")]
+    amount: Annotated[Decimal, PlainSerializer(str, when_used="json")]
     calendar_year: int 
 
 class TaxEntry(BaseModel):
     name: str # e.g. "Federal Income Tax", "Social Security"
-    amount: Annotated[Decimal, PlainSerializer(float, when_used="json")]
+    amount: Annotated[Decimal, PlainSerializer(str, when_used="json")]
     
 class DeductionEntry(BaseModel):
     name: str
-    amount: Annotated[Decimal, PlainSerializer(float, when_used="json")]
+    amount: Annotated[Decimal, PlainSerializer(str, when_used="json")]
     type: DeductionType
 
 class PayrollEntry(BaseModel):
     employee_id: str
-    gross_pay: Annotated[Decimal, PlainSerializer(float, when_used="json")]
+    gross_pay: Annotated[Decimal, PlainSerializer(str, when_used="json")]
     taxes: List[TaxEntry]
     deductions: List[DeductionEntry]
-    net_pay_claimed: Annotated[Decimal, PlainSerializer(float, when_used="json")] # What the LLM/System calculated
+    net_pay_claimed: Annotated[Decimal, PlainSerializer(str, when_used="json")] # What the LLM/System calculated
     currency: Currency = Currency.USD
+
+DecimalJSON = Annotated[Decimal, PlainSerializer(str, when_used="json")]
 
 class VerificationResult(BaseModel):
     verified: bool
-    recalculated_net_pay: Decimal
-    discrepancy: Decimal
+    recalculated_net_pay: DecimalJSON
+    discrepancy: DecimalJSON
     message: str
     verification_mode: str = "SYMBOLIC"  # Always SYMBOLIC for tax (Z3-powered)

@@ -1,4 +1,5 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, PlainSerializer
+from typing_extensions import Annotated
 from decimal import Decimal
 from typing import List, Optional, Literal
 from enum import Enum
@@ -54,24 +55,24 @@ class WorkerClassificationParams(BaseModel):
 class ContractorPayment(BaseModel):
     contractor_id: str
     payment_type: PaymentType
-    amount: Decimal
+    amount: Annotated[Decimal, PlainSerializer(float, when_used="json")]
     calendar_year: int 
 
 class TaxEntry(BaseModel):
     name: str # e.g. "Federal Income Tax", "Social Security"
-    amount: Decimal
+    amount: Annotated[Decimal, PlainSerializer(float, when_used="json")]
     
 class DeductionEntry(BaseModel):
     name: str
-    amount: Decimal
+    amount: Annotated[Decimal, PlainSerializer(float, when_used="json")]
     type: DeductionType
 
 class PayrollEntry(BaseModel):
     employee_id: str
-    gross_pay: Decimal
+    gross_pay: Annotated[Decimal, PlainSerializer(float, when_used="json")]
     taxes: List[TaxEntry]
     deductions: List[DeductionEntry]
-    net_pay_claimed: Decimal # What the LLM/System calculated
+    net_pay_claimed: Annotated[Decimal, PlainSerializer(float, when_used="json")] # What the LLM/System calculated
     currency: Currency = Currency.USD
 
 class VerificationResult(BaseModel):

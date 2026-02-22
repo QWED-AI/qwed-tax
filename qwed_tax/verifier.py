@@ -9,12 +9,11 @@ from .guards.indirect_tax_guard import InputCreditGuard
 from .guards.tds_guard import TDSGuard
 from .guards.classification_guard import ClassificationGuard
 from .guards.nexus_guard import NexusGuard
-from .guards.payroll_guard import PayrollGuard
-from .guards.crypto_tax_guard import CryptoTaxGuard
-from .guards.investment_guard import InvestmentGuard
-from .guards.gst_guard import GSTGuard
-from .guards.deposit_rate_guard import DepositRateGuard
-from .guards.inter_head_adjustment_guard import InterHeadAdjustmentGuard
+from .jurisdictions.us.payroll_guard import PayrollGuard
+from .jurisdictions.india.guards.crypto_guard import CryptoTaxGuard
+from .jurisdictions.india.guards.investment_guard import InvestmentGuard
+from .jurisdictions.india.guards.gst_guard import GSTGuard
+from .jurisdictions.india.guards.deposit_guard import DepositRateGuard
 
 class TaxPreFlight:
     """
@@ -164,7 +163,6 @@ class TaxVerifier:
             self.investment = InvestmentGuard()
             self.gst = GSTGuard()
             self.deposit = DepositRateGuard()
-            self.setoff = InterHeadAdjustmentGuard()
         else:
             raise ValueError(f"Unsupported Jurisdiction: {jurisdiction}")
 

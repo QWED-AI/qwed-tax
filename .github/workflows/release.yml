@@ -4,14 +4,13 @@ on:
   release:
     types: [published]
 
-permissions:
-  contents: read
-  id-token: write  # Critical for Trusted Publishing
-
 jobs:
   pypi-publish:
     name: Upload release to PyPI
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Critical for Trusted Publishing
     environment:
       name: pypi
       url: https://pypi.org/p/qwed-tax
@@ -33,11 +32,13 @@ jobs:
         run: python -m build
 
       - name: Publish package distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # release/v1
 
   npm-publish:
     name: Publish to NPM
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     environment:
       name: npm
       url: https://www.npmjs.com/package/@qwed-ai/tax

@@ -1,7 +1,10 @@
+import logging
 from typing import Dict, Any
 from pydantic import ValidationError
 from qwed_tax.verifier import TaxVerifier
-from qwed_tax.models import PayrollEntry
+from qwed_tax.models import PayrollEntry, VerificationResult
+
+_logger = logging.getLogger(__name__)
 
 class QWEDTaxMiddleware:
     """
@@ -47,11 +50,19 @@ class QWEDTaxMiddleware:
         # Verify deterministic logic via the QWED tax verification engine
         try:
             result = self.tax_verifier.verify_us_payroll(entry=payroll_entry)
+            if not isinstance(result, VerificationResult):
+                return {
+                    "status": "BLOCKED",
+                    "risk": "VERIFIER_ERROR",
+                    "reason": "Tax verifier returned an unexpected result type.",
+                    "execution_permitted": False,
+                }
         except Exception as exc:
+            _logger.exception("TaxVerifier raised an unexpected error")
             return {
                 "status": "BLOCKED",
                 "risk": "VERIFIER_ERROR",
-                "reason": f"Tax verifier raised an unexpected error: {exc}",
+                "reason": "Tax verifier raised an unexpected internal error.",
                 "execution_permitted": False,
             }
         

@@ -58,7 +58,7 @@ class QWEDTaxMiddleware:
                     "execution_permitted": False,
                 }
         except Exception as exc:
-            _logger.exception("TaxVerifier raised an unexpected error: %s", exc)
+            _logger.exception("TaxVerifier raised an unexpected error")
             return {
                 "status": "BLOCKED",
                 "risk": "VERIFIER_ERROR",

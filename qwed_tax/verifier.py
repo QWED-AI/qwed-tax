@@ -95,6 +95,10 @@ class TaxPreFlight:
         if "asset_type" not in intent or "dates" not in intent:
             return
         dates = intent["dates"]
+        if "buy" not in dates or "sell" not in dates:
+            report["allowed"] = False
+            report["blocks"].append("Capital gains checks require both buy and sell dates.")
+            return
         term = self.cg.determine_term(dates["buy"], dates["sell"], intent["asset_type"])
         if "claimed_rate" not in intent:
             return
@@ -142,20 +146,19 @@ class TaxPreFlight:
             report["blocks"].append(remit_check["error"])
 
     def _check_expense_and_tds(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
-        if "expense_category" not in intent or "amount" not in intent:
-            return
-        # ITC Check
-        itc_check = self.indirect_tax.verify_itc_eligibility(
-            intent["expense_category"],
-            intent.get("amount", 0),
-            intent.get("tax_paid", 0)
-        )
-        if not itc_check["verified"]:
-            report["allowed"] = False
-            report["blocks"].append(itc_check["reason"])
+        # ITC Check (only when both keys present)
+        if "expense_category" in intent and "amount" in intent:
+            itc_check = self.indirect_tax.verify_itc_eligibility(
+                intent["expense_category"],
+                intent.get("amount", 0),
+                intent.get("tax_paid", 0)
+            )
+            if not itc_check["verified"]:
+                report["allowed"] = False
+                report["blocks"].append(itc_check["reason"])
 
         # TDS Check (if service type provided)
-        if "service_type" not in intent:
+        if "service_type" not in intent or "amount" not in intent:
             return
         tds_check = self.withholding.calculate_deduction(
             intent["service_type"],

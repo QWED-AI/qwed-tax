@@ -25,15 +25,16 @@ class InputCreditGuard:
         """
         normalized_cat = expense_category.upper().replace(" ", "_")
         
+        # Rule 1b: Gift threshold — only blocked above 50,000 INR (exact match only)
+        if normalized_cat == "GIFT_TO_EMPLOYEE" and amount < 50000:
+            return {
+                "verified": True,
+                "eligible_itc": tax_paid,
+                "note": "Gift below INR 50,000 threshold — ITC allowed."
+            }
+
         # Rule 1: Blocked Categories
-        if any(blocked in normalized_cat for blocked in self.blocked_categories):
-            # Rule 1b: Gift threshold — only blocked above 50,000 INR
-            if "GIFT_TO_EMPLOYEE" in normalized_cat and amount < 50000:
-                return {
-                    "verified": True,
-                    "eligible_itc": tax_paid,
-                    "note": "Gift below INR 50,000 threshold — ITC allowed."
-                }
+        if normalized_cat in self.blocked_categories:
             return {
                 "verified": False,
                 "eligible_itc": 0.0,

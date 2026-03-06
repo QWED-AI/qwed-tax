@@ -11,7 +11,7 @@ class DTAAGuard:
                                 foreign_income: float,
                                 foreign_tax_paid: float,
                                 home_tax_rate: float,
-                                foreign_tax_limit_rate: float = 15.0) -> Dict[str, Any]:
+                                foreign_tax_limit_rate: float = None) -> Dict[str, Any]:
         """
         Verify Foreign Tax Credit (FTC) availability.
         Rule: Credit is Lower of (Actual Foreign Tax Paid) OR (Tax Payable in Home Country on that income).
@@ -25,21 +25,26 @@ class DTAAGuard:
         f_income = Decimal(str(foreign_income))
         f_tax_paid = Decimal(str(foreign_tax_paid))
         h_rate = Decimal(str(home_tax_rate)) / Decimal("100")
-        f_limit_rate = Decimal(str(foreign_tax_limit_rate)) / Decimal("100")
         
         # 1. Tax Payable in Home Country on foreign income
         home_tax_payable = f_income * h_rate
         
-        # 2. DTAA Treaty Limit — max creditable tax under treaty rate
-        treaty_limit = f_income * f_limit_rate
+        # 2. Allowable Credit = Min(Foreign Tax Paid, Home Tax Payable)
+        allowable_credit = min(f_tax_paid, home_tax_payable)
         
-        # 3. Allowable Credit = Min(Foreign Tax Paid, Home Tax Payable, Treaty Limit)
-        allowable_credit = min(f_tax_paid, home_tax_payable, treaty_limit)
+        # 3. DTAA Treaty Limit — only applied when treaty rate is provided
+        if foreign_tax_limit_rate is not None:
+            f_limit_rate = Decimal(str(foreign_tax_limit_rate)) / Decimal("100")
+            treaty_limit = f_income * f_limit_rate
+            allowable_credit = min(allowable_credit, treaty_limit)
         
         if allowable_credit < f_tax_paid:
-             return {
-                "verified": True, # It is verified, but capped.
-                "message": f"FTC Capped. Paid {f_tax_paid}, but allowable credit is {allowable_credit} (Home: {home_tax_payable}, Treaty: {treaty_limit}).",
+            msg = f"FTC Capped. Paid {f_tax_paid}, allowable credit is {allowable_credit} (Home: {home_tax_payable})."
+            if foreign_tax_limit_rate is not None:
+                msg = f"FTC Capped. Paid {f_tax_paid}, allowable credit is {allowable_credit} (Home: {home_tax_payable}, Treaty: {treaty_limit})."
+            return {
+                "verified": True,
+                "message": msg,
                 "allowable_credit": float(allowable_credit),
                 "excess_tax_lapsed": float(f_tax_paid - allowable_credit)
             }

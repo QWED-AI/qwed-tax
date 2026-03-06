@@ -1,4 +1,4 @@
-from z3 import *
+from z3 import Solver, Bool, Real, Implies, And, sat
 from pydantic import BaseModel
 
 class W4Form(BaseModel):

@@ -1,4 +1,4 @@
-from z3 import *
+from z3 import Solver, Bool, And, sat, is_true
 from ...models import WorkerClassificationParams, State
 
 class ClassificationGuard:

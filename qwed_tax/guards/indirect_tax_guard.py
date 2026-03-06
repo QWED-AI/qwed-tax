@@ -25,8 +25,16 @@ class InputCreditGuard:
         """
         normalized_cat = expense_category.upper().replace(" ", "_")
         
+        # Rule 1b: Gift threshold — only blocked above 50,000 INR (exact match only)
+        if normalized_cat == "GIFT_TO_EMPLOYEE" and amount < 50000:
+            return {
+                "verified": True,
+                "eligible_itc": tax_paid,
+                "note": "Gift below INR 50,000 threshold — ITC allowed."
+            }
+
         # Rule 1: Blocked Categories
-        if any(blocked in normalized_cat for blocked in self.blocked_categories):
+        if normalized_cat in self.blocked_categories:
             return {
                 "verified": False,
                 "eligible_itc": 0.0,
@@ -53,7 +61,7 @@ class InputCreditGuard:
         Deterministic Checksum validation for Indian GSTIN.
         Format: 22AAAAA0000A1Z5 (15 chars)
         """
-        pattern = r"^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$"
+        pattern = r"^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$"
         if not re.match(pattern, gstin):
              return {"verified": False, "error": "Invalid GSTIN format."}
         return {"verified": True}

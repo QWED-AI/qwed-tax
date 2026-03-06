@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from decimal import Decimal
 
 class DTAAGuard:
@@ -11,7 +11,7 @@ class DTAAGuard:
                                 foreign_income: float,
                                 foreign_tax_paid: float,
                                 home_tax_rate: float,
-                                foreign_tax_limit_rate: float = None) -> Dict[str, Any]:
+                                foreign_tax_limit_rate: Optional[float] = None) -> Dict[str, Any]:
         """
         Verify Foreign Tax Credit (FTC) availability.
         Rule: Credit is Lower of (Actual Foreign Tax Paid) OR (Tax Payable in Home Country on that income).

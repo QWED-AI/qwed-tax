@@ -1,7 +1,10 @@
 """Tests covering new/changed code paths for SonarCloud coverage."""
-import pytest
+from decimal import Decimal
 from qwed_tax.guards.dtaa_guard import DTAAGuard
 from qwed_tax.guards.indirect_tax_guard import InputCreditGuard
+from qwed_tax.jurisdictions.us.form1099_guard import Form1099Guard
+from qwed_tax.models import ContractorPayment, PaymentType
+from qwed_tax.verifier import TaxPreFlight
 
 
 # ------------------------------------------------------------------
@@ -75,6 +78,11 @@ class TestInputCreditGuard:
         assert res["verified"] is True
         assert res["eligible_itc"] == 5400
 
+    def test_gift_at_threshold_blocked(self):
+        """Gift at exactly 50,000 should be blocked (< 50000 is the condition)."""
+        res = self.guard.verify_itc_eligibility("gift to employee", 50000, 9000)
+        assert res["verified"] is False
+
     def test_gift_above_threshold_blocked(self):
         res = self.guard.verify_itc_eligibility("gift to employee", 60000, 10800)
         assert res["verified"] is False
@@ -92,11 +100,6 @@ class TestInputCreditGuard:
 # ------------------------------------------------------------------
 # Form1099Guard — filing requirements
 # ------------------------------------------------------------------
-
-from qwed_tax.jurisdictions.us.form1099_guard import Form1099Guard
-from qwed_tax.models import ContractorPayment, PaymentType
-from decimal import Decimal
-
 
 class TestForm1099Guard:
     def setup_method(self):
@@ -169,9 +172,6 @@ class TestForm1099Guard:
 # ------------------------------------------------------------------
 # TaxPreFlight — audit_transaction extracted methods
 # ------------------------------------------------------------------
-
-from qwed_tax.verifier import TaxPreFlight
-
 
 class TestTaxPreFlightAudit:
     def setup_method(self):

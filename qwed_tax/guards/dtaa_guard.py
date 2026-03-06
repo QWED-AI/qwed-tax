@@ -25,21 +25,21 @@ class DTAAGuard:
         f_income = Decimal(str(foreign_income))
         f_tax_paid = Decimal(str(foreign_tax_paid))
         h_rate = Decimal(str(home_tax_rate)) / Decimal("100")
+        f_limit_rate = Decimal(str(foreign_tax_limit_rate)) / Decimal("100")
         
-        # 1. Tax Payable in Home Country on doubled income
+        # 1. Tax Payable in Home Country on foreign income
         home_tax_payable = f_income * h_rate
         
-        # 2. Allowable Credit = Min(Foreign Tax Paid, Home Tax Payable)
-        allowable_credit = min(f_tax_paid, home_tax_payable)
+        # 2. DTAA Treaty Limit — max creditable tax under treaty rate
+        treaty_limit = f_income * f_limit_rate
         
-        # 3. DTAA Limit Check (e.g. if Treaty says Max 15%, but foreign country deducted 20%)
-        # The excess over Treaty rate might not be creditable depending on local laws, 
-        # but here we focus on the basic credit math.
+        # 3. Allowable Credit = Min(Foreign Tax Paid, Home Tax Payable, Treaty Limit)
+        allowable_credit = min(f_tax_paid, home_tax_payable, treaty_limit)
         
         if allowable_credit < f_tax_paid:
              return {
                 "verified": True, # It is verified, but capped.
-                "message": f"FTC Capped. Paid {f_tax_paid}, but Home Tax Liability is only {home_tax_payable}. Credit limited to {allowable_credit}.",
+                "message": f"FTC Capped. Paid {f_tax_paid}, but allowable credit is {allowable_credit} (Home: {home_tax_payable}, Treaty: {treaty_limit}).",
                 "allowable_credit": float(allowable_credit),
                 "excess_tax_lapsed": float(f_tax_paid - allowable_credit)
             }

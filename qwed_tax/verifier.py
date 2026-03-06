@@ -42,108 +42,129 @@ class TaxPreFlight:
         """
         report = {"allowed": True, "blocks": []}
 
-        # Check 1: Worker Classification (Payroll)
-        if "worker_facts" in intent and "worker_type" in intent:
-            class_check = self.classifier.verify_classification_claim(
-                intent["worker_type"], intent["worker_facts"]
-            )
-            if not class_check["verified"]:
-                report["allowed"] = False
-                report["blocks"].append(class_check["error"])
-
-        # Check 2: Economic Nexus (Sales)
-        if "sales_data" in intent and "state" in intent:
-            tax_decision = intent.get("tax_decision", "no_tax")
-            nexus_check = self.nexus.check_nexus_liability(
-                intent["state"], 
-                intent["sales_data"].get("amount", 0), 
-                intent["sales_data"].get("transactions", 0), 
-                tax_decision
-            )
-            if not nexus_check["verified"]:
-                report["allowed"] = False
-                report["blocks"].append(nexus_check["error"])
-
-        # Check 3: Trader Set-Off (Investments)
-        if "loss_head" in intent and "offset_head" in intent:
-            setoff = self.speculation.verify_setoff(
-                intent["loss_head"], 
-                intent.get("loss_amount", 0), 
-                intent["offset_head"]
-            )
-            if not setoff["verified"]:
-                report["allowed"] = False
-                report["blocks"].append(setoff["error"] + " " + setoff.get("fix", ""))
-
-        # Check 4: Capital Gains Rates (Investments)
-        if "asset_type" in intent and "dates" in intent:
-            dates = intent["dates"]
-            term = self.cg.determine_term(dates["buy"], dates["sell"], intent["asset_type"])
-            if "claimed_rate" in intent:
-                rate_check = self.cg.verify_tax_rate(intent["asset_type"], term, intent["claimed_rate"])
-                if not rate_check["verified"]:
-                    report["allowed"] = False
-                    report["blocks"].append(rate_check["error"])
-
-        # Check 5: Corporate Loans (Section 185)
-        if "lender_type" in intent and "borrower_role" in intent:
-             loan_check = self.related_party.verify_loan_compliance(
-                 intent["lender_type"], 
-                 intent["borrower_role"], 
-                 intent.get("interest_rate", 0), 
-                 intent.get("market_rate", 0)
-             )
-             if not loan_check["verified"]:
-                 report["allowed"] = False
-                 report["blocks"].append(loan_check["message"])
-
-        # Check 6: Startup Valuation (Convertible Notes)
-        if "investment_round" in intent and intent["investment_round"] == "convertible_note":
-             val_check = self.valuation.verify_conversion(
-                 intent.get("investment_amount", "0"),
-                 intent.get("cap_price", "0"), # Assumes Price Cap
-                 intent.get("discount", "0"),
-                 intent.get("next_round_price", "0")
-             )
-             if not val_check["verified"]:
-                 report["allowed"] = False
-                 report["blocks"].append(val_check["error"])
-
-        # Check 7: International Remittance (LRS/TCS)
-        if "remittance_amount_usd" in intent and "purpose" in intent:
-             remit_check = self.remittance.verify_lrs_limit(
-                 intent["remittance_amount_usd"],
-                 intent["purpose"],
-                 intent.get("fy_usage", 0)
-             )
-             if not remit_check["verified"]:
-                 report["allowed"] = False
-                 report["blocks"].append(remit_check["error"])
-
-        # Check 8: Accounts Payable (Expense/TDS)
-        if "expense_category" in intent and "amount" in intent:
-             # ITC Check
-             itc_check = self.indirect_tax.verify_itc_eligibility(
-                 intent["expense_category"],
-                 intent.get("amount", 0),
-                 intent.get("tax_paid", 0)
-             )
-             if not itc_check["verified"]:
-                 report["allowed"] = False
-                 report["blocks"].append(itc_check["reason"])
-             
-             # TDS Check (if service type provided)
-             if "service_type" in intent:
-                 tds_check = self.withholding.calculate_deduction(
-                     intent["service_type"],
-                     intent.get("amount", 0),
-                     intent.get("ytd_payment", 0)
-                 )
-                 if tds_check.get("deduction") and Decimal(tds_check["deduction"]) > 0:
-                     report["advisories"] = report.get("advisories", [])
-                     report["advisories"].append(f"TDS Required: Deduct {tds_check['deduction']} from payment.")
+        self._check_worker_classification(intent, report)
+        self._check_economic_nexus(intent, report)
+        self._check_trader_setoff(intent, report)
+        self._check_capital_gains(intent, report)
+        self._check_corporate_loans(intent, report)
+        self._check_startup_valuation(intent, report)
+        self._check_international_remittance(intent, report)
+        self._check_expense_and_tds(intent, report)
 
         return report
+
+    # ---- extracted checks (each keeps complexity flat) ----
+
+    def _check_worker_classification(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
+        if "worker_facts" not in intent or "worker_type" not in intent:
+            return
+        class_check = self.classifier.verify_classification_claim(
+            intent["worker_type"], intent["worker_facts"]
+        )
+        if not class_check["verified"]:
+            report["allowed"] = False
+            report["blocks"].append(class_check["error"])
+
+    def _check_economic_nexus(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
+        if "sales_data" not in intent or "state" not in intent:
+            return
+        tax_decision = intent.get("tax_decision", "no_tax")
+        nexus_check = self.nexus.check_nexus_liability(
+            intent["state"],
+            intent["sales_data"].get("amount", 0),
+            intent["sales_data"].get("transactions", 0),
+            tax_decision
+        )
+        if not nexus_check["verified"]:
+            report["allowed"] = False
+            report["blocks"].append(nexus_check["error"])
+
+    def _check_trader_setoff(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
+        if "loss_head" not in intent or "offset_head" not in intent:
+            return
+        setoff = self.speculation.verify_setoff(
+            intent["loss_head"],
+            intent.get("loss_amount", 0),
+            intent["offset_head"]
+        )
+        if not setoff["verified"]:
+            report["allowed"] = False
+            report["blocks"].append(setoff["error"] + " " + setoff.get("fix", ""))
+
+    def _check_capital_gains(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
+        if "asset_type" not in intent or "dates" not in intent:
+            return
+        dates = intent["dates"]
+        term = self.cg.determine_term(dates["buy"], dates["sell"], intent["asset_type"])
+        if "claimed_rate" not in intent:
+            return
+        rate_check = self.cg.verify_tax_rate(intent["asset_type"], term, intent["claimed_rate"])
+        if not rate_check["verified"]:
+            report["allowed"] = False
+            report["blocks"].append(rate_check["error"])
+
+    def _check_corporate_loans(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
+        if "lender_type" not in intent or "borrower_role" not in intent:
+            return
+        loan_check = self.related_party.verify_loan_compliance(
+            intent["lender_type"],
+            intent["borrower_role"],
+            intent.get("interest_rate", 0),
+            intent.get("market_rate", 0)
+        )
+        if not loan_check["verified"]:
+            report["allowed"] = False
+            report["blocks"].append(loan_check["message"])
+
+    def _check_startup_valuation(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
+        if "investment_round" not in intent or intent["investment_round"] != "convertible_note":
+            return
+        val_check = self.valuation.verify_conversion(
+            intent.get("investment_amount", "0"),
+            intent.get("cap_price", "0"),
+            intent.get("discount", "0"),
+            intent.get("next_round_price", "0")
+        )
+        if not val_check["verified"]:
+            report["allowed"] = False
+            report["blocks"].append(val_check["error"])
+
+    def _check_international_remittance(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
+        if "remittance_amount_usd" not in intent or "purpose" not in intent:
+            return
+        remit_check = self.remittance.verify_lrs_limit(
+            intent["remittance_amount_usd"],
+            intent["purpose"],
+            intent.get("fy_usage", 0)
+        )
+        if not remit_check["verified"]:
+            report["allowed"] = False
+            report["blocks"].append(remit_check["error"])
+
+    def _check_expense_and_tds(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
+        if "expense_category" not in intent or "amount" not in intent:
+            return
+        # ITC Check
+        itc_check = self.indirect_tax.verify_itc_eligibility(
+            intent["expense_category"],
+            intent.get("amount", 0),
+            intent.get("tax_paid", 0)
+        )
+        if not itc_check["verified"]:
+            report["allowed"] = False
+            report["blocks"].append(itc_check["reason"])
+
+        # TDS Check (if service type provided)
+        if "service_type" not in intent:
+            return
+        tds_check = self.withholding.calculate_deduction(
+            intent["service_type"],
+            intent.get("amount", 0),
+            intent.get("ytd_payment", 0)
+        )
+        if tds_check.get("deduction") and Decimal(tds_check["deduction"]) > 0:
+            report["advisories"] = report.get("advisories", [])
+            report["advisories"].append(f"TDS Required: Deduct {tds_check['deduction']} from payment.")
 
 class TaxVerifier:
     """

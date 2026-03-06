@@ -1,4 +1,4 @@
-from z3 import *
+from z3 import Solver, Bool, Implies, Not, And, sat, is_true
 from ...models import WorkArrangement, State
 
 class ReciprocityGuard:

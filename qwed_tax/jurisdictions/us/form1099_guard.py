@@ -1,6 +1,14 @@
 from decimal import Decimal
 from ...models import ContractorPayment, PaymentType
 
+# Threshold table: payment_type -> (form, threshold)
+_FILING_RULES = {
+    PaymentType.NON_EMPLOYEE_COMPENSATION: ("1099-NEC", Decimal("600.00")),
+    PaymentType.RENT: ("1099-MISC", Decimal("600.00")),
+    PaymentType.ROYALTIES: ("1099-MISC", Decimal("10.00")),
+    PaymentType.ATTORNEY_FEES: ("1099-MISC", Decimal("600.00")),
+}
+
 class Form1099Guard:
     """
     Verifies IRS 1099 Filing Requirements.
@@ -15,46 +23,24 @@ class Form1099Guard:
         amount = payment.amount
         ptype = payment.payment_type
         
-        # Thresholds (2024/2025 Standard)
-        NEC_THRESHOLD = Decimal("600.00")
-        RENT_THRESHOLD = Decimal("600.00")
-        ROYALTY_THRESHOLD = Decimal("10.00")
-        ATTORNEY_THRESHOLD = Decimal("600.00")
-        
-        required_form = None
-        reason = ""
-        
-        if ptype == PaymentType.NON_EMPLOYEE_COMPENSATION:
-            if amount >= NEC_THRESHOLD:
-                required_form = "1099-NEC"
-                reason = f"Non-employee compensation (${amount}) >= ${NEC_THRESHOLD}"
-            else:
-                reason = f"Non-employee compensation (${amount}) below threshold (${NEC_THRESHOLD})"
+        rule = _FILING_RULES.get(ptype)
+        if rule is None:
+            return {
+                "filing_required": False,
+                "form": None,
+                "reason": f"No filing rule defined for payment type '{ptype}'."
+            }
 
-        elif ptype == PaymentType.RENT:
-            if amount >= RENT_THRESHOLD:
-                required_form = "1099-MISC"
-                reason = f"Rent payments (${amount}) >= ${RENT_THRESHOLD}"
-            else:
-                reason = "Rent below threshold"
+        form_name, threshold = rule
+        if amount >= threshold:
+            return {
+                "filing_required": True,
+                "form": form_name,
+                "reason": f"{ptype.value} (${amount}) >= ${threshold}"
+            }
 
-        elif ptype == PaymentType.ROYALTIES:
-            if amount >= ROYALTY_THRESHOLD:
-                required_form = "1099-MISC"
-                reason = f"Royalties (${amount}) >= ${ROYALTY_THRESHOLD}"
-            else:
-                reason = "Royalties below threshold"
-                
-        elif ptype == PaymentType.ATTORNEY_FEES:
-            # Gross proceeds to an attorney
-            if amount >= ATTORNEY_THRESHOLD:
-                required_form = "1099-MISC" # Box 10 usually, or NEC depending on service. keeping simple.
-                reason = f"Attorney fees (${amount}) >= ${ATTORNEY_THRESHOLD}"
-            else:
-                reason = "Attorney fees below threshold"
-                
         return {
-            "filing_required": required_form is not None,
-            "form": required_form,
-            "reason": reason
+            "filing_required": False,
+            "form": None,
+            "reason": f"{ptype.value} (${amount}) below threshold (${threshold})"
         }

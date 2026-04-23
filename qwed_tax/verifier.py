@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Any, ClassVar, Dict
 from decimal import Decimal
 from .guards.speculation_guard import SpeculationGuard
 from .guards.capital_gains_guard import CapitalGainsGuard
@@ -21,6 +21,102 @@ class TaxPreFlight:
     Runs generic deterministic checks (Classification, Nexus) BEFORE
     heavy payroll or logic execution.
     """
+    _ACTION_ALIASES: ClassVar[dict[str, str]] = {
+        "hire_worker": "hire",
+        "worker_classification": "hire",
+        "sales_tax_check": "economic_nexus",
+        "sales_tax_assessment": "economic_nexus",
+    }
+
+    _ACTION_CHECKS: ClassVar[dict[str, list[dict[str, Any]]]] = {
+        "hire": [
+            {
+                "name": "worker_classification",
+                "required": (
+                    "worker_type",
+                    "worker_facts.provides_tools",
+                    "worker_facts.reimburses_expenses",
+                    "worker_facts.indefinite_relationship",
+                ),
+                "handler": "_check_worker_classification",
+            }
+        ],
+        "economic_nexus": [
+            {
+                "name": "economic_nexus",
+                "required": (
+                    "state",
+                    "sales_data.amount",
+                    "sales_data.transactions",
+                    "tax_decision",
+                ),
+                "handler": "_check_economic_nexus",
+            }
+        ],
+        "trade_tax": [
+            {
+                "name": "trader_setoff",
+                "trigger": ("loss_head", "offset_head", "loss_amount"),
+                "required": ("loss_head", "offset_head", "loss_amount"),
+                "handler": "_check_trader_setoff",
+            },
+            {
+                "name": "capital_gains",
+                "trigger": ("asset_type", "dates", "claimed_rate"),
+                "required": ("asset_type", "dates.buy", "dates.sell", "claimed_rate"),
+                "handler": "_check_capital_gains",
+            },
+        ],
+        "corporate_action": [
+            {
+                "name": "corporate_loans",
+                "trigger": ("lender_type", "borrower_role", "interest_rate", "market_rate"),
+                "required": ("lender_type", "borrower_role", "interest_rate", "market_rate"),
+                "handler": "_check_corporate_loans",
+            },
+            {
+                "name": "startup_valuation",
+                "trigger": (
+                    "investment_round",
+                    "investment_amount",
+                    "cap_price",
+                    "discount",
+                    "next_round_price",
+                ),
+                "required": (
+                    "investment_round",
+                    "investment_amount",
+                    "cap_price",
+                    "discount",
+                    "next_round_price",
+                ),
+                "supported_if": "_supports_startup_valuation",
+                "handler": "_check_startup_valuation",
+            },
+        ],
+        "remit_money": [
+            {
+                "name": "international_remittance",
+                "required": ("remittance_amount_usd", "purpose", "fy_usage"),
+                "handler": "_check_international_remittance",
+            }
+        ],
+        "expense_claim": [
+            {
+                "name": "expense_itc",
+                "required": ("expense_category", "amount", "tax_paid"),
+                "handler": "_check_expense_itc",
+            }
+        ],
+        "pay_invoice": [
+            {
+                "name": "invoice_tds",
+                "required": ("service_type", "amount", "ytd_payment"),
+                "handler": "_check_invoice_tds",
+            }
+        ],
+    }
+
     def __init__(self):
         self.classifier = ClassificationGuard()
         self.nexus = NexusGuard()
@@ -36,28 +132,109 @@ class TaxPreFlight:
         """
         The 'Pre-Flight' Check for Agentic Finance.
         intent = {
-            "action": "pay_invoice" | "trade_tax" | "corporate_action" | "remit_money" | "expense_claim",
+            "action": "hire" | "economic_nexus" | "trade_tax" | "corporate_action" |
+                      "remit_money" | "expense_claim" | "pay_invoice",
             ...
         }
         """
-        report = {"allowed": True, "blocks": []}
+        if not isinstance(intent, dict) or not intent:
+            return self._blocked_report(
+                "TaxPreFlight requires a non-empty intent payload with an explicit action.",
+                action=None,
+            )
 
-        self._check_worker_classification(intent, report)
-        self._check_economic_nexus(intent, report)
-        self._check_trader_setoff(intent, report)
-        self._check_capital_gains(intent, report)
-        self._check_corporate_loans(intent, report)
-        self._check_startup_valuation(intent, report)
-        self._check_international_remittance(intent, report)
-        self._check_expense_and_tds(intent, report)
+        requested_action = intent.get("action")
+        canonical_action = self._normalize_action(intent.get("action"))
+        if canonical_action is None:
+            supported_actions = ", ".join(sorted(self._ACTION_CHECKS))
+            return self._blocked_report(
+                f"TaxPreFlight requires a supported action. Supported actions: {supported_actions}.",
+                action=requested_action,
+            )
+
+        report = {
+            "allowed": True,
+            "action": canonical_action,
+            "blocks": [],
+            "checks_run": [],
+        }
+
+        selected_checks = self._select_checks(canonical_action, intent)
+        if not selected_checks:
+            report["allowed"] = False
+            report["blocks"].append(self._format_missing_claim_message(canonical_action))
+            return report
+
+        for check in selected_checks:
+            missing_fields = self._missing_fields(intent, check["required"])
+            if missing_fields:
+                report["allowed"] = False
+                report["blocks"].append(
+                    f"Action '{canonical_action}' is missing required fields for "
+                    f"{check['name']}: {', '.join(missing_fields)}."
+                )
+                return report
+
+        for check in selected_checks:
+            report["checks_run"].append(check["name"])
+            getattr(self, check["handler"])(intent, report)
 
         return report
 
     # ---- extracted checks (each keeps complexity flat) ----
 
+    def _normalize_action(self, action: Any) -> str | None:
+        if not isinstance(action, str) or not action.strip():
+            return None
+        normalized = action.strip().lower().replace(" ", "_")
+        normalized = self._ACTION_ALIASES.get(normalized, normalized)
+        return normalized if normalized in self._ACTION_CHECKS else None
+
+    def _select_checks(self, action: str, intent: Dict[str, Any]) -> list[Dict[str, Any]]:
+        checks = self._ACTION_CHECKS[action]
+        if len(checks) == 1:
+            return checks
+
+        selected = []
+        for check in checks:
+            trigger_fields = check.get("trigger", check["required"])
+            if not all(self._has_field(intent, field) for field in trigger_fields):
+                continue
+
+            predicate_name = check.get("supported_if")
+            if predicate_name and not getattr(self, predicate_name)(intent):
+                continue
+
+            selected.append(check)
+        return selected
+
+    def _format_missing_claim_message(self, action: str) -> str:
+        options = []
+        for check in self._ACTION_CHECKS[action]:
+            options.append(f"{check['name']} ({', '.join(check['required'])})")
+        return (
+            f"Action '{action}' did not include a complete verifiable claim. "
+            f"Supported claim shapes: {'; '.join(options)}."
+        )
+
+    def _missing_fields(self, payload: Dict[str, Any], fields: tuple[str, ...]) -> list[str]:
+        return [field for field in fields if not self._has_field(payload, field)]
+
+    def _has_field(self, payload: Dict[str, Any], field_path: str) -> bool:
+        current: Any = payload
+        for part in field_path.split("."):
+            if not isinstance(current, dict) or part not in current:
+                return False
+            current = current[part]
+        return current is not None and current != ""
+
+    def _blocked_report(self, message: str, action: Any = None) -> Dict[str, Any]:
+        return {"allowed": False, "action": action, "blocks": [message], "checks_run": []}
+
+    def _supports_startup_valuation(self, intent: Dict[str, Any]) -> bool:
+        return intent.get("investment_round") == "convertible_note"
+
     def _check_worker_classification(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
-        if "worker_facts" not in intent or "worker_type" not in intent:
-            return
         class_check = self.classifier.verify_classification_claim(
             intent["worker_type"], intent["worker_facts"]
         )
@@ -66,25 +243,20 @@ class TaxPreFlight:
             report["blocks"].append(class_check["error"])
 
     def _check_economic_nexus(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
-        if "sales_data" not in intent or "state" not in intent:
-            return
-        tax_decision = intent.get("tax_decision", "no_tax")
         nexus_check = self.nexus.check_nexus_liability(
             intent["state"],
-            intent["sales_data"].get("amount", 0),
-            intent["sales_data"].get("transactions", 0),
-            tax_decision
+            intent["sales_data"]["amount"],
+            intent["sales_data"]["transactions"],
+            intent["tax_decision"],
         )
         if not nexus_check["verified"]:
             report["allowed"] = False
             report["blocks"].append(nexus_check["error"])
 
     def _check_trader_setoff(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
-        if "loss_head" not in intent or "offset_head" not in intent:
-            return
         setoff = self.speculation.verify_setoff(
             intent["loss_head"],
-            intent.get("loss_amount", 0),
+            intent["loss_amount"],
             intent["offset_head"]
         )
         if not setoff["verified"]:
@@ -92,82 +264,74 @@ class TaxPreFlight:
             report["blocks"].append(setoff["error"] + " " + setoff.get("fix", ""))
 
     def _check_capital_gains(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
-        if "asset_type" not in intent or "dates" not in intent:
-            return
         dates = intent["dates"]
-        if "buy" not in dates or "sell" not in dates:
-            report["allowed"] = False
-            report["blocks"].append("Capital gains checks require both buy and sell dates.")
-            return
         term = self.cg.determine_term(dates["buy"], dates["sell"], intent["asset_type"])
-        if "claimed_rate" not in intent:
-            return
         rate_check = self.cg.verify_tax_rate(intent["asset_type"], term, intent["claimed_rate"])
         if not rate_check["verified"]:
             report["allowed"] = False
-            report["blocks"].append(rate_check["error"])
+            report["blocks"].append(rate_check.get("error", "Capital gains verification failed."))
 
     def _check_corporate_loans(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
-        if "lender_type" not in intent or "borrower_role" not in intent:
-            return
         loan_check = self.related_party.verify_loan_compliance(
             intent["lender_type"],
             intent["borrower_role"],
-            intent.get("interest_rate", 0),
-            intent.get("market_rate", 0)
+            intent["interest_rate"],
+            intent["market_rate"]
         )
         if not loan_check["verified"]:
             report["allowed"] = False
             report["blocks"].append(loan_check["message"])
 
     def _check_startup_valuation(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
-        if "investment_round" not in intent or intent["investment_round"] != "convertible_note":
-            return
         val_check = self.valuation.verify_conversion(
-            intent.get("investment_amount", "0"),
-            intent.get("cap_price", "0"),
-            intent.get("discount", "0"),
-            intent.get("next_round_price", "0")
+            intent["investment_amount"],
+            intent["cap_price"],
+            intent["discount"],
+            intent["next_round_price"]
         )
         if not val_check["verified"]:
             report["allowed"] = False
             report["blocks"].append(val_check["error"])
 
     def _check_international_remittance(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
-        if "remittance_amount_usd" not in intent or "purpose" not in intent:
-            return
         remit_check = self.remittance.verify_lrs_limit(
             intent["remittance_amount_usd"],
             intent["purpose"],
-            intent.get("fy_usage", 0)
+            intent["fy_usage"]
         )
         if not remit_check["verified"]:
             report["allowed"] = False
             report["blocks"].append(remit_check["error"])
 
-    def _check_expense_and_tds(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
-        # ITC Check (only when both keys present)
-        if "expense_category" in intent and "amount" in intent:
-            itc_check = self.indirect_tax.verify_itc_eligibility(
-                intent["expense_category"],
-                intent.get("amount", 0),
-                intent.get("tax_paid", 0)
-            )
-            if not itc_check["verified"]:
-                report["allowed"] = False
-                report["blocks"].append(itc_check["reason"])
+    def _check_expense_itc(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
+        itc_check = self.indirect_tax.verify_itc_eligibility(
+            intent["expense_category"],
+            intent["amount"],
+            intent["tax_paid"]
+        )
+        if not itc_check["verified"]:
+            report["allowed"] = False
+            report["blocks"].append(itc_check["reason"])
 
-        # TDS Check (if service type provided)
-        if "service_type" not in intent or "amount" not in intent:
-            return
+    def _check_invoice_tds(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
         tds_check = self.withholding.calculate_deduction(
             intent["service_type"],
-            intent.get("amount", 0),
-            intent.get("ytd_payment", 0)
+            intent["amount"],
+            intent["ytd_payment"]
         )
-        if tds_check.get("deduction") and Decimal(tds_check["deduction"]) > 0:
+        if not tds_check["verified"]:
+            report["allowed"] = False
+            report["blocks"].append(tds_check["error"])
+            return
+
+        deduction = tds_check.get("deduction")
+        if deduction is not None and Decimal(deduction) > 0:
+            report["allowed"] = False
             report["advisories"] = report.get("advisories", [])
-            report["advisories"].append(f"TDS Required: Deduct {tds_check['deduction']} from payment.")
+            report["advisories"].append(f"TDS Required: Deduct {deduction} from payment.")
+            report["blocks"].append(
+                f"Invoice payment requires TDS deduction of {deduction} before execution."
+            )
 
 class TaxVerifier:
     """

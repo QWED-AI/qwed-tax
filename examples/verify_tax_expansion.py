@@ -44,6 +44,7 @@ def test_nexus_guard():
     
     # Test 3: Nexus Violation (NY > $500k)
     intent_nexus = {
+        "action": "economic_nexus",
         "state": "NY",
         "sales_data": {"amount": 500001, "transactions": 10},
         "tax_decision": "no_tax" # Hallucination
@@ -56,6 +57,7 @@ def test_nexus_guard():
 
     # Test 4: Safe State (Below Threshold)
     intent_safe = {
+        "action": "economic_nexus",
         "state": "FL",
         "sales_data": {"amount": 50000, "transactions": 10},
         "tax_decision": "no_tax"

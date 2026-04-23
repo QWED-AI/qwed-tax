@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Any, ClassVar, Dict
 from decimal import Decimal
 from .guards.speculation_guard import SpeculationGuard
 from .guards.capital_gains_guard import CapitalGainsGuard
@@ -21,14 +21,14 @@ class TaxPreFlight:
     Runs generic deterministic checks (Classification, Nexus) BEFORE
     heavy payroll or logic execution.
     """
-    _ACTION_ALIASES = {
+    _ACTION_ALIASES: ClassVar[dict[str, str]] = {
         "hire_worker": "hire",
         "worker_classification": "hire",
         "sales_tax_check": "economic_nexus",
         "sales_tax_assessment": "economic_nexus",
     }
 
-    _ACTION_CHECKS = {
+    _ACTION_CHECKS: ClassVar[dict[str, list[dict[str, Any]]]] = {
         "hire": [
             {
                 "name": "worker_classification",
@@ -90,6 +90,7 @@ class TaxPreFlight:
                     "discount",
                     "next_round_price",
                 ),
+                "supported_if": "_supports_startup_valuation",
                 "handler": "_check_startup_valuation",
             },
         ],
@@ -175,12 +176,6 @@ class TaxPreFlight:
             report["checks_run"].append(check["name"])
             getattr(self, check["handler"])(intent, report)
 
-        if not report["checks_run"]:
-            report["allowed"] = False
-            report["blocks"].append(
-                f"Action '{canonical_action}' did not execute any verification checks."
-            )
-
         return report
 
     # ---- extracted checks (each keeps complexity flat) ----
@@ -200,8 +195,14 @@ class TaxPreFlight:
         selected = []
         for check in checks:
             trigger_fields = check.get("trigger", check["required"])
-            if any(self._has_field(intent, field) for field in trigger_fields):
-                selected.append(check)
+            if not any(self._has_field(intent, field) for field in trigger_fields):
+                continue
+
+            predicate_name = check.get("supported_if")
+            if predicate_name and not getattr(self, predicate_name)(intent):
+                continue
+
+            selected.append(check)
         return selected
 
     def _format_missing_claim_message(self, action: str) -> str:
@@ -226,6 +227,9 @@ class TaxPreFlight:
 
     def _blocked_report(self, message: str) -> Dict[str, Any]:
         return {"allowed": False, "blocks": [message], "checks_run": []}
+
+    def _supports_startup_valuation(self, intent: Dict[str, Any]) -> bool:
+        return intent.get("investment_round") == "convertible_note"
 
     def _check_worker_classification(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
         class_check = self.classifier.verify_classification_claim(
@@ -276,12 +280,6 @@ class TaxPreFlight:
             report["blocks"].append(loan_check["message"])
 
     def _check_startup_valuation(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
-        if intent["investment_round"] != "convertible_note":
-            report["allowed"] = False
-            report["blocks"].append(
-                "Startup valuation verification currently supports only convertible_note rounds."
-            )
-            return
         val_check = self.valuation.verify_conversion(
             intent["investment_amount"],
             intent["cap_price"],

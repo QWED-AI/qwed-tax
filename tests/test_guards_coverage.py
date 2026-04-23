@@ -277,6 +277,94 @@ class TestTaxPreFlightAudit:
         assert report["checks_run"] == ["expense_itc"]
         assert report["blocks"] == []
 
+    def test_economic_nexus_violation_runs_and_blocks(self):
+        """Economic nexus claims should run and block when thresholds are crossed."""
+        report = self.pf.audit_transaction(
+            {
+                "action": "economic_nexus",
+                "state": "NY",
+                "sales_data": {"amount": 500001, "transactions": 10},
+                "tax_decision": "no_tax",
+            }
+        )
+        assert report["allowed"] is False
+        assert report["checks_run"] == ["economic_nexus"]
+        assert "Nexus Violation" in report["blocks"][0]
+
+    def test_trade_tax_setoff_runs_and_blocks_illegal_offset(self):
+        """Trade tax set-off claims should block speculative loss misuse."""
+        report = self.pf.audit_transaction(
+            {
+                "action": "trade_tax",
+                "loss_head": "intraday loss",
+                "loss_amount": 2500,
+                "offset_head": "futures profit",
+            }
+        )
+        assert report["allowed"] is False
+        assert report["checks_run"] == ["trader_setoff"]
+        assert "Illegal Set-Off" in report["blocks"][0]
+
+    def test_trade_tax_capital_gains_runs_and_blocks_rate_mismatch(self):
+        """Capital gains claims should run and block incorrect statutory rates."""
+        report = self.pf.audit_transaction(
+            {
+                "action": "trade_tax",
+                "asset_type": "equity",
+                "dates": {"buy": "2022-01-01", "sell": "2024-02-01"},
+                "claimed_rate": "10%",
+            }
+        )
+        assert report["allowed"] is False
+        assert report["checks_run"] == ["capital_gains"]
+        assert "Rate Mismatch" in report["blocks"][0]
+
+    def test_corporate_action_loan_check_runs_and_blocks(self):
+        """Corporate loan compliance should block prohibited borrower roles."""
+        report = self.pf.audit_transaction(
+            {
+                "action": "corporate_action",
+                "lender_type": "company",
+                "borrower_role": "director",
+                "interest_rate": 10.0,
+                "market_rate": 8.0,
+            }
+        )
+        assert report["allowed"] is False
+        assert report["checks_run"] == ["corporate_loans"]
+        assert "Section 185" in report["blocks"][0]
+
+    def test_corporate_action_unsupported_startup_claim_blocks_without_fake_success(self):
+        """Unsupported startup valuation rounds must fail closed instead of pretending to verify."""
+        report = self.pf.audit_transaction(
+            {
+                "action": "corporate_action",
+                "investment_round": "series_a",
+                "investment_amount": "100000",
+                "cap_price": "8",
+                "discount": "0.2",
+                "next_round_price": "10",
+            }
+        )
+        assert report["allowed"] is False
+        assert report["checks_run"] == []
+        assert "did not include a complete verifiable claim" in report["blocks"][0]
+        assert "startup_valuation" in report["blocks"][0]
+
+    def test_remittance_limit_violation_runs_and_blocks(self):
+        """Remittance checks should block when annual limit is exceeded."""
+        report = self.pf.audit_transaction(
+            {
+                "action": "remit_money",
+                "remittance_amount_usd": 10000,
+                "purpose": "education",
+                "fy_usage": 245001,
+            }
+        )
+        assert report["allowed"] is False
+        assert report["checks_run"] == ["international_remittance"]
+        assert "exceeds LRS limit" in report["blocks"][0]
+
     def test_hire_action_runs_and_blocks_misclassification(self):
         """Once required fields are present, the derived classification should gate allow."""
         report = self.pf.audit_transaction(

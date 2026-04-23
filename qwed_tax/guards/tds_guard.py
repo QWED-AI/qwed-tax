@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Dict, Any
 
 class TDSGuard:
@@ -25,8 +25,14 @@ class TDSGuard:
         if not rule:
             return {"verified": True, "deduction": "0", "note": "No TDS rule found for category"}
 
-        inv_amt = Decimal(str(invoice_amount))
-        ytd_amt = Decimal(str(ytd_payment))
+        try:
+            inv_amt = Decimal(str(invoice_amount))
+            ytd_amt = Decimal(str(ytd_payment))
+        except InvalidOperation:
+            return {
+                "verified": False,
+                "error": "TDS verification requires numeric invoice_amount and ytd_payment values."
+            }
         
         total_exposure = inv_amt + ytd_amt
         threshold = Decimal(str(rule["threshold"]))

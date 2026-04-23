@@ -183,10 +183,20 @@ class TestTaxPreFlightAudit:
     def setup_method(self):
         self.pf = TaxPreFlight()
 
+    def test_non_dict_intents_block(self):
+        """Non-dict payloads must fail closed with a consistent report shape."""
+        for bad_intent in (None, [], "bad"):
+            report = self.pf.audit_transaction(bad_intent)
+            assert report["allowed"] is False
+            assert report["action"] is None
+            assert report["checks_run"] == []
+            assert "non-empty intent payload" in report["blocks"][0]
+
     def test_empty_intent_blocks(self):
         """Empty payloads must fail closed instead of silently passing."""
         report = self.pf.audit_transaction({})
         assert report["allowed"] is False
+        assert report["action"] is None
         assert report["checks_run"] == []
         assert "non-empty intent payload" in report["blocks"][0]
 
@@ -200,6 +210,7 @@ class TestTaxPreFlightAudit:
             }
         )
         assert report["allowed"] is False
+        assert report["action"] is None
         assert report["checks_run"] == []
         assert "requires a supported action" in report["blocks"][0]
 
@@ -214,6 +225,7 @@ class TestTaxPreFlightAudit:
             }
         )
         assert report["allowed"] is False
+        assert report["action"] == "magic_tax_mode"
         assert report["checks_run"] == []
         assert "supported action" in report["blocks"][0]
 
@@ -319,6 +331,21 @@ class TestTaxPreFlightAudit:
         assert report["checks_run"] == ["capital_gains"]
         assert "Rate Mismatch" in report["blocks"][0]
 
+    def test_trade_tax_stray_loss_key_does_not_select_wrong_check(self):
+        """Capital gains payloads should not co-select trader_setoff from a stray key."""
+        report = self.pf.audit_transaction(
+            {
+                "action": "trade_tax",
+                "asset_type": "equity",
+                "dates": {"buy": "2022-01-01", "sell": "2024-02-01"},
+                "claimed_rate": "10%",
+                "loss_head": "intraday loss",
+            }
+        )
+        assert report["allowed"] is False
+        assert report["checks_run"] == ["capital_gains"]
+        assert "Rate Mismatch" in report["blocks"][0]
+
     def test_corporate_action_loan_check_runs_and_blocks(self):
         """Corporate loan compliance should block prohibited borrower roles."""
         report = self.pf.audit_transaction(
@@ -351,6 +378,20 @@ class TestTaxPreFlightAudit:
         assert "did not include a complete verifiable claim" in report["blocks"][0]
         assert "startup_valuation" in report["blocks"][0]
 
+    def test_remittance_non_numeric_values_block_without_crashing(self):
+        """Remittance checks must fail closed on non-numeric values."""
+        report = self.pf.audit_transaction(
+            {
+                "action": "remit_money",
+                "remittance_amount_usd": "pending",
+                "purpose": "education",
+                "fy_usage": "unknown",
+            }
+        )
+        assert report["allowed"] is False
+        assert report["checks_run"] == ["international_remittance"]
+        assert "requires numeric" in report["blocks"][0]
+
     def test_remittance_limit_violation_runs_and_blocks(self):
         """Remittance checks should block when annual limit is exceeded."""
         report = self.pf.audit_transaction(
@@ -364,6 +405,36 @@ class TestTaxPreFlightAudit:
         assert report["allowed"] is False
         assert report["checks_run"] == ["international_remittance"]
         assert "exceeds LRS limit" in report["blocks"][0]
+
+    def test_pay_invoice_tds_requirement_blocks_and_adds_advisory(self):
+        """Invoice payments should block until required TDS is deducted."""
+        report = self.pf.audit_transaction(
+            {
+                "action": "pay_invoice",
+                "service_type": "professional_fees",
+                "amount": 50000,
+                "ytd_payment": 0,
+            }
+        )
+        assert report["allowed"] is False
+        assert report["checks_run"] == ["invoice_tds"]
+        assert "advisories" in report
+        assert "TDS Required" in report["advisories"][0]
+        assert "requires TDS deduction" in report["blocks"][0]
+
+    def test_pay_invoice_non_numeric_values_block_without_crashing(self):
+        """Pay-invoice checks must fail closed on non-numeric values."""
+        report = self.pf.audit_transaction(
+            {
+                "action": "pay_invoice",
+                "service_type": "professional_fees",
+                "amount": "pending",
+                "ytd_payment": "carry_forward",
+            }
+        )
+        assert report["allowed"] is False
+        assert report["checks_run"] == ["invoice_tds"]
+        assert "requires numeric" in report["blocks"][0]
 
     def test_hire_action_runs_and_blocks_misclassification(self):
         """Once required fields are present, the derived classification should gate allow."""

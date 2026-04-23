@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Dict, Any, List
 
 class RemittanceGuard:
@@ -13,8 +13,14 @@ class RemittanceGuard:
         Source: Audit Trace 3253e38e9d60
         """
         limit = Decimal("250000") # $250k annual limit
-        current_txn = Decimal(str(amount_usd))
-        usage = Decimal(str(financial_year_usage))
+        try:
+            current_txn = Decimal(str(amount_usd))
+            usage = Decimal(str(financial_year_usage))
+        except InvalidOperation:
+            return {
+                "verified": False,
+                "error": "BLOCKED: Remittance verification requires numeric amount_usd and financial_year_usage values."
+            }
         
         # 1. Prohibited Transactions Check (Schedule I)
         prohibited_purposes = ["GAMBLING", "LOTTERY", "RACING", "BANNED_MAGAZINES", "SWEEPSTAKES", "MARGIN_TRADING"]
@@ -38,7 +44,10 @@ class RemittanceGuard:
         Deterministically calculates Tax Collected at Source (TCS).
         Rule: Education (Loan) = 0.5%, Education (Self) = 5%, Other = 20%
         """
-        amt = Decimal(str(amount_inr))
+        try:
+            amt = Decimal(str(amount_inr))
+        except InvalidOperation as exc:
+            raise ValueError("amount_inr must be numeric for TCS calculation.") from exc
         threshold = Decimal("700000") # 7 Lakhs exemption
         
         if amt <= threshold:

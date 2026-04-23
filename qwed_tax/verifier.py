@@ -139,14 +139,17 @@ class TaxPreFlight:
         """
         if not isinstance(intent, dict) or not intent:
             return self._blocked_report(
-                "TaxPreFlight requires a non-empty intent payload with an explicit action."
+                "TaxPreFlight requires a non-empty intent payload with an explicit action.",
+                action=None,
             )
 
+        requested_action = intent.get("action")
         canonical_action = self._normalize_action(intent.get("action"))
         if canonical_action is None:
             supported_actions = ", ".join(sorted(self._ACTION_CHECKS))
             return self._blocked_report(
-                f"TaxPreFlight requires a supported action. Supported actions: {supported_actions}."
+                f"TaxPreFlight requires a supported action. Supported actions: {supported_actions}.",
+                action=requested_action,
             )
 
         report = {
@@ -195,7 +198,7 @@ class TaxPreFlight:
         selected = []
         for check in checks:
             trigger_fields = check.get("trigger", check["required"])
-            if not any(self._has_field(intent, field) for field in trigger_fields):
+            if not all(self._has_field(intent, field) for field in trigger_fields):
                 continue
 
             predicate_name = check.get("supported_if")
@@ -225,8 +228,8 @@ class TaxPreFlight:
             current = current[part]
         return current is not None and current != ""
 
-    def _blocked_report(self, message: str) -> Dict[str, Any]:
-        return {"allowed": False, "blocks": [message], "checks_run": []}
+    def _blocked_report(self, message: str, action: Any = None) -> Dict[str, Any]:
+        return {"allowed": False, "action": action, "blocks": [message], "checks_run": []}
 
     def _supports_startup_valuation(self, intent: Dict[str, Any]) -> bool:
         return intent.get("investment_round") == "convertible_note"
@@ -316,9 +319,18 @@ class TaxPreFlight:
             intent["amount"],
             intent["ytd_payment"]
         )
+        if not tds_check["verified"]:
+            report["allowed"] = False
+            report["blocks"].append(tds_check["error"])
+            return
+
         if tds_check.get("deduction") and Decimal(tds_check["deduction"]) > 0:
+            report["allowed"] = False
             report["advisories"] = report.get("advisories", [])
             report["advisories"].append(f"TDS Required: Deduct {tds_check['deduction']} from payment.")
+            report["blocks"].append(
+                f"Invoice payment requires TDS deduction of {tds_check['deduction']} before execution."
+            )
 
 class TaxVerifier:
     """

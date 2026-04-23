@@ -324,12 +324,13 @@ class TaxPreFlight:
             report["blocks"].append(tds_check["error"])
             return
 
-        if tds_check.get("deduction") and Decimal(tds_check["deduction"]) > 0:
+        deduction = tds_check.get("deduction")
+        if deduction is not None and Decimal(deduction) > 0:
             report["allowed"] = False
             report["advisories"] = report.get("advisories", [])
-            report["advisories"].append(f"TDS Required: Deduct {tds_check['deduction']} from payment.")
+            report["advisories"].append(f"TDS Required: Deduct {deduction} from payment.")
             report["blocks"].append(
-                f"Invoice payment requires TDS deduction of {tds_check['deduction']} before execution."
+                f"Invoice payment requires TDS deduction of {deduction} before execution."
             )
 
 class TaxVerifier:

@@ -33,6 +33,11 @@ class TDSGuard:
                 "verified": False,
                 "error": "TDS verification requires numeric invoice_amount and ytd_payment values."
             }
+        if not (inv_amt.is_finite() and ytd_amt.is_finite()):
+            return {
+                "verified": False,
+                "error": "TDS verification requires finite invoice_amount and ytd_payment values."
+            }
         
         total_exposure = inv_amt + ytd_amt
         threshold = Decimal(str(rule["threshold"]))

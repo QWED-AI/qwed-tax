@@ -392,6 +392,20 @@ class TestTaxPreFlightAudit:
         assert report["checks_run"] == ["international_remittance"]
         assert "requires numeric" in report["blocks"][0]
 
+    def test_remittance_non_finite_values_block_without_crashing(self):
+        """Remittance checks must fail closed on NaN/Infinity values."""
+        report = self.pf.audit_transaction(
+            {
+                "action": "remit_money",
+                "remittance_amount_usd": float("inf"),
+                "purpose": "education",
+                "fy_usage": float("nan"),
+            }
+        )
+        assert report["allowed"] is False
+        assert report["checks_run"] == ["international_remittance"]
+        assert "requires finite" in report["blocks"][0]
+
     def test_remittance_limit_violation_runs_and_blocks(self):
         """Remittance checks should block when annual limit is exceeded."""
         report = self.pf.audit_transaction(
@@ -435,6 +449,20 @@ class TestTaxPreFlightAudit:
         assert report["allowed"] is False
         assert report["checks_run"] == ["invoice_tds"]
         assert "requires numeric" in report["blocks"][0]
+
+    def test_pay_invoice_non_finite_values_block_without_crashing(self):
+        """Pay-invoice checks must fail closed on NaN/Infinity values."""
+        report = self.pf.audit_transaction(
+            {
+                "action": "pay_invoice",
+                "service_type": "professional_fees",
+                "amount": float("nan"),
+                "ytd_payment": float("inf"),
+            }
+        )
+        assert report["allowed"] is False
+        assert report["checks_run"] == ["invoice_tds"]
+        assert "requires finite" in report["blocks"][0]
 
     def test_hire_action_runs_and_blocks_misclassification(self):
         """Once required fields are present, the derived classification should gate allow."""

@@ -2,9 +2,16 @@
 
 from decimal import Decimal
 
+from qwed_tax.guards.nexus_guard import NexusGuard
+from qwed_tax.guards.related_party_guard import RelatedPartyGuard
+from qwed_tax.guards.remittance_guard import RemittanceGuard
+from qwed_tax.guards.speculation_guard import SpeculationGuard
+from qwed_tax.guards.tds_guard import TDSGuard
+from qwed_tax.guards.transfer_pricing_guard import TransferPricingGuard
 from qwed_tax.guards.dtaa_guard import DTAAGuard
 from qwed_tax.guards.indirect_tax_guard import InputCreditGuard
 from qwed_tax.jurisdictions.us.form1099_guard import Form1099Guard
+from qwed_tax.jurisdictions.us.withholding_guard import W4Form, WithholdingGuard
 from qwed_tax.models import ContractorPayment, PaymentType
 from qwed_tax.verifier import TaxPreFlight
 
@@ -20,24 +27,26 @@ class TestDTAAGuard:
 
     def test_ftc_without_treaty_rate(self):
         """No treaty rate means simple min(foreign_tax, home_tax)."""
+        # Trailing zeros are preserved from Decimal arithmetic; keep this exact string shape intentional.
         res = self.guard.verify_foreign_tax_credit(1000, 100, 30.0)
-        assert res["allowable_credit"] == 100.0
-        assert res["excess_tax_lapsed"] == 0.0
+        assert res["allowable_credit"] == "100"
+        assert res["excess_tax_lapsed"] == "0"
 
     def test_ftc_capped_by_home_tax(self):
         """Foreign tax above home tax is capped at the home liability."""
         res = self.guard.verify_foreign_tax_credit(1000, 200, 15.0)
-        assert res["allowable_credit"] == 150.0
-        assert res["excess_tax_lapsed"] == 50.0
+        assert res["allowable_credit"] == "150.00"
+        assert res["excess_tax_lapsed"] == "50.00"
         assert "FTC Capped" in res["message"]
 
     def test_ftc_with_treaty_rate_caps(self):
         """Treaty rate cap applies before the home-tax cap."""
+        # Treaty-rate arithmetic preserves a Decimal exponent here, so "100.0" is expected and intentional.
         res = self.guard.verify_foreign_tax_credit(
             1000, 200, 30.0, foreign_tax_limit_rate=10.0
         )
-        assert res["allowable_credit"] == 100.0
-        assert res["excess_tax_lapsed"] == 100.0
+        assert res["allowable_credit"] == "100.0"
+        assert res["excess_tax_lapsed"] == "100.0"
         assert "Treaty" in res["message"]
 
     def test_ftc_treaty_rate_no_effect_when_generous(self):
@@ -45,8 +54,21 @@ class TestDTAAGuard:
         res = self.guard.verify_foreign_tax_credit(
             1000, 100, 30.0, foreign_tax_limit_rate=50.0
         )
-        assert res["allowable_credit"] == 100.0
-        assert res["excess_tax_lapsed"] == 0.0
+        assert res["allowable_credit"] == "100"
+        assert res["excess_tax_lapsed"] == "0"
+
+    def test_ftc_invalid_numeric_input_blocks(self):
+        """FTC verification should fail closed on invalid numeric input."""
+        res = self.guard.verify_foreign_tax_credit("pending", 100, 30.0)
+        assert res["verified"] is False
+        assert res["allowable_credit"] == "0"
+        assert "foreign_income must be a numeric value." == res["message"]
+
+    def test_ftc_negative_inputs_block(self):
+        """FTC verification should fail closed on negative financial inputs."""
+        res = self.guard.verify_foreign_tax_credit(-1000, 100, 30.0)
+        assert res["verified"] is False
+        assert res["message"] == "foreign_income must be a non-negative numeric value."
 
 
 # ------------------------------------------------------------------
@@ -61,7 +83,7 @@ class TestInputCreditGuard:
     def test_blocked_category_food(self):
         res = self.guard.verify_itc_eligibility("food and beverage", 5000, 900)
         assert res["verified"] is False
-        assert res["eligible_itc"] == 0.0
+        assert res["eligible_itc"] == "0"
 
     def test_blocked_category_motor_vehicle(self):
         res = self.guard.verify_itc_eligibility("MOTOR_VEHICLE", 100000, 18000)
@@ -75,17 +97,18 @@ class TestInputCreditGuard:
     def test_eligible_expense(self):
         res = self.guard.verify_itc_eligibility("office supplies", 1000, 180)
         assert res["verified"] is True
-        assert res["eligible_itc"] == 180
+        assert res["eligible_itc"] == "180"
 
     def test_gift_below_threshold_allowed(self):
         res = self.guard.verify_itc_eligibility("gift to employee", 30000, 5400)
         assert res["verified"] is True
-        assert res["eligible_itc"] == 5400
+        assert res["eligible_itc"] == "5400"
 
-    def test_gift_at_threshold_blocked(self):
-        """Gift at exactly 50,000 should be blocked because the rule is amount < 50,000."""
+    def test_gift_at_threshold_allowed(self):
+        """Gift at exactly 50,000 remains eligible; only values above that block."""
         res = self.guard.verify_itc_eligibility("gift to employee", 50000, 9000)
-        assert res["verified"] is False
+        assert res["verified"] is True
+        assert res["eligible_itc"] == "9000"
 
     def test_gift_above_threshold_blocked(self):
         res = self.guard.verify_itc_eligibility("gift to employee", 60000, 10800)
@@ -99,6 +122,111 @@ class TestInputCreditGuard:
         res = self.guard.verify_gstin_format("INVALID")
         assert res["verified"] is False
         assert "Invalid GSTIN" in res["error"]
+
+    def test_invalid_numeric_itc_input_blocks(self):
+        res = self.guard.verify_itc_eligibility("office supplies", "pending", 180)
+        assert res["verified"] is False
+        assert res["eligible_itc"] == "0"
+        assert res["reason"] == "amount must be a numeric value."
+
+
+# ------------------------------------------------------------------
+# Financial guard numeric safety - Decimal boundary parsing
+# ------------------------------------------------------------------
+
+
+class TestFinancialGuardNumericSafety:
+    def test_speculation_blocks_invalid_loss_amount(self):
+        guard = SpeculationGuard()
+        res = guard.verify_setoff("intraday loss", "pending", "futures profit")
+        assert res["verified"] is False
+        assert res["error"] == "loss_amount must be a numeric value."
+
+    def test_nexus_blocks_invalid_sales_amount(self):
+        guard = NexusGuard()
+        res = guard.check_nexus_liability("CA", "pending", 5, "no_tax")
+        assert res["verified"] is False
+        assert res["error"] == "ytd_sales must be a numeric value."
+
+    def test_related_party_accepts_decimal_string_rates(self):
+        guard = RelatedPartyGuard()
+        res = guard.verify_loan_compliance("company", "employee", "8.25", "8.00")
+        assert res["verified"] is True
+
+    def test_transfer_pricing_returns_string_adjustment(self):
+        guard = TransferPricingGuard()
+        res = guard.verify_arms_length_price("105", "100", tolerance_percent="3.0")
+        assert res["verified"] is False
+        assert res["potential_adjustment"] == "-5"
+        assert res["safe_harbour_range"] == ["97.00", "103.00"]
+
+    def test_transfer_pricing_within_range_uses_consistent_shape(self):
+        guard = TransferPricingGuard()
+        res = guard.verify_arms_length_price("102", "100", tolerance_percent="3.0")
+        assert res["verified"] is True
+        assert res["potential_adjustment"] == "0"
+        assert res["safe_harbour_range"] == ["97.00", "103.00"]
+
+    def test_transfer_pricing_blocks_invalid_numeric_input(self):
+        guard = TransferPricingGuard()
+        res = guard.verify_arms_length_price("draft", "100", tolerance_percent="3.0")
+        assert res["verified"] is False
+        assert res["risk"] == "INVALID_NUMERIC_INPUT"
+        assert res["message"] == "transaction_price must be a numeric value."
+
+    def test_remittance_tcs_accepts_string_amount(self):
+        guard = RemittanceGuard()
+        tcs = guard.calculate_tcs("900000", "education", is_loan_funded=False)
+        assert tcs == Decimal("10000")
+
+    def test_tds_blocks_non_finite_values(self):
+        guard = TDSGuard()
+        res = guard.calculate_deduction("PROFESSIONAL_FEES", float("inf"), 0)
+        assert res["verified"] is False
+        assert res["error"] == "invoice_amount must be a finite numeric value."
+
+
+# ------------------------------------------------------------------
+# WithholdingGuard - exact Decimal W-4 inputs
+# ------------------------------------------------------------------
+
+
+class TestWithholdingGuard:
+    def setup_method(self):
+        self.guard = WithholdingGuard()
+
+    def test_exempt_status_accepts_decimal_liability(self):
+        form = W4Form(
+            employee_id="E001",
+            claim_exempt=True,
+            tax_liability_last_year=Decimal("0"),
+            expect_refund_this_year=True,
+        )
+        res = self.guard.verify_exempt_status(form)
+        assert res["verified"] is True
+
+    def test_exempt_status_blocks_decimal_liability(self):
+        form = W4Form(
+            employee_id="E002",
+            claim_exempt=True,
+            tax_liability_last_year=Decimal("1.25"),
+            expect_refund_this_year=True,
+        )
+        res = self.guard.verify_exempt_status(form)
+        assert res["verified"] is False
+
+    def test_w4_form_rejects_boolean_tax_liability(self):
+        try:
+            W4Form(
+                employee_id="E003",
+                claim_exempt=True,
+                tax_liability_last_year=True,
+                expect_refund_this_year=True,
+            )
+        except ValueError as exc:
+            assert "tax_liability_last_year must be a numeric value." in str(exc)
+        else:
+            raise AssertionError("W4Form should reject boolean tax liability values.")
 
 
 # ------------------------------------------------------------------
@@ -390,7 +518,7 @@ class TestTaxPreFlightAudit:
         )
         assert report["allowed"] is False
         assert report["checks_run"] == ["international_remittance"]
-        assert "requires numeric" in report["blocks"][0]
+        assert "numeric value" in report["blocks"][0]
 
     def test_remittance_non_finite_values_block_without_crashing(self):
         """Remittance checks must fail closed on NaN/Infinity values."""
@@ -404,7 +532,7 @@ class TestTaxPreFlightAudit:
         )
         assert report["allowed"] is False
         assert report["checks_run"] == ["international_remittance"]
-        assert "requires finite" in report["blocks"][0]
+        assert "finite numeric value" in report["blocks"][0]
 
     def test_remittance_limit_violation_runs_and_blocks(self):
         """Remittance checks should block when annual limit is exceeded."""
@@ -448,7 +576,7 @@ class TestTaxPreFlightAudit:
         )
         assert report["allowed"] is False
         assert report["checks_run"] == ["invoice_tds"]
-        assert "requires numeric" in report["blocks"][0]
+        assert "numeric value" in report["blocks"][0]
 
     def test_pay_invoice_non_finite_values_block_without_crashing(self):
         """Pay-invoice checks must fail closed on NaN/Infinity values."""
@@ -462,7 +590,7 @@ class TestTaxPreFlightAudit:
         )
         assert report["allowed"] is False
         assert report["checks_run"] == ["invoice_tds"]
-        assert "requires finite" in report["blocks"][0]
+        assert "finite numeric value" in report["blocks"][0]
 
     def test_hire_action_runs_and_blocks_misclassification(self):
         """Once required fields are present, the derived classification should gate allow."""

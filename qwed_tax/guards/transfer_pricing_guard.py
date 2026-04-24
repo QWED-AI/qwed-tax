@@ -1,5 +1,7 @@
-from typing import Dict, Any, Optional
 from decimal import Decimal
+from typing import Any, Dict
+
+from qwed_tax.numeric import decimal_text, parse_decimal_input
 
 class TransferPricingGuard:
     """
@@ -8,10 +10,10 @@ class TransferPricingGuard:
     """
     
     def verify_arms_length_price(self, 
-                               transaction_price: float, 
-                               benchmark_price: float, 
+                               transaction_price: Any, 
+                               benchmark_price: Any, 
                                method: str = "CUP", 
-                               tolerance_percent: float = 3.0) -> Dict[str, Any]:
+                               tolerance_percent: Any = Decimal("3.0")) -> Dict[str, Any]:
         """
         Verify if a transaction price is within the 'Arm's Length' range.
         
@@ -21,9 +23,18 @@ class TransferPricingGuard:
             method: Transfer Pricing Method used (e.g., CUP - Comparable Uncontrolled Price).
             tolerance_percent: Safe harbour tolerance (e.g., India allows 1% or 3%).
         """
-        tx_price = Decimal(str(transaction_price))
-        alp_price = Decimal(str(benchmark_price))
-        tolerance = Decimal(str(tolerance_percent)) / Decimal("100")
+        try:
+            tx_price = parse_decimal_input(transaction_price, "transaction_price")
+            alp_price = parse_decimal_input(benchmark_price, "benchmark_price")
+            tolerance = parse_decimal_input(tolerance_percent, "tolerance_percent") / Decimal("100")
+        except ValueError as exc:
+            return {
+                "verified": False,
+                "risk": "INVALID_NUMERIC_INPUT",
+                "message": str(exc),
+                "safe_harbour_range": [],
+                "potential_adjustment": "0",
+            }
         
         # Calculate Safe Harbour Range
         # Lower bound = ALP * (1 - tolerance)
@@ -35,8 +46,12 @@ class TransferPricingGuard:
         if lower_bound <= tx_price <= upper_bound:
             return {
                 "verified": True,
-                "message": f"Transaction price {tx_price} is within Safe Harbour range ({lower_bound} - {upper_bound}) of ALP {alp_price}.",
-                "adjustment_required": 0.0
+                "message": (
+                    f"Transaction price {decimal_text(tx_price)} is within Safe Harbour range "
+                    f"({decimal_text(lower_bound)} - {decimal_text(upper_bound)}) of ALP {decimal_text(alp_price)}."
+                ),
+                "safe_harbour_range": [decimal_text(lower_bound), decimal_text(upper_bound)],
+                "potential_adjustment": "0",
             }
         else:
             # Adjustment Required (Primary Adjustment)
@@ -51,7 +66,10 @@ class TransferPricingGuard:
             return {
                 "verified": False,
                 "risk": "TRANSFER_PRICING_ADJUSTMENT",
-                "message": f"Price {tx_price} deviates from ALP {alp_price} beyond {tolerance_percent}% tolerance.",
-                "safe_harbour_range": [float(lower_bound), float(upper_bound)],
-                "potential_adjustment": float(adjustment)
+                "message": (
+                    f"Price {decimal_text(tx_price)} deviates from ALP {decimal_text(alp_price)} "
+                    f"beyond {decimal_text(tolerance * Decimal('100'))}% tolerance."
+                ),
+                "safe_harbour_range": [decimal_text(lower_bound), decimal_text(upper_bound)],
+                "potential_adjustment": decimal_text(adjustment),
             }

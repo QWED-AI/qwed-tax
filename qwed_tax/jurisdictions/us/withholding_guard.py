@@ -1,11 +1,20 @@
-from z3 import Solver, Bool, Real, Implies, And, sat
-from pydantic import BaseModel
+from decimal import Decimal
+
+from z3 import Solver, Bool, Real, RealVal, Implies, And, sat
+from pydantic import BaseModel, field_validator
+
+from qwed_tax.numeric import parse_decimal_input
 
 class W4Form(BaseModel):
     employee_id: str
     claim_exempt: bool
-    tax_liability_last_year: float # Using float for Z3 compatibility (representing currency)
+    tax_liability_last_year: Decimal
     expect_refund_this_year: bool
+
+    @field_validator("tax_liability_last_year", mode="before")
+    @classmethod
+    def validate_tax_liability_last_year(cls, value):
+        return parse_decimal_input(value, "tax_liability_last_year")
 
 class WithholdingGuard:
     """
@@ -36,7 +45,7 @@ class WithholdingGuard:
         
         # 2. Add the User's Input as constraints
         s.add(exempt == form.claim_exempt)
-        s.add(liability_last == form.tax_liability_last_year)
+        s.add(liability_last == RealVal(str(form.tax_liability_last_year)))
         s.add(expect_no_liability == form.expect_refund_this_year)
         
         # 3. Check consistency

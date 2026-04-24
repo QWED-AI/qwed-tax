@@ -27,6 +27,7 @@ class TestDTAAGuard:
 
     def test_ftc_without_treaty_rate(self):
         """No treaty rate means simple min(foreign_tax, home_tax)."""
+        # Trailing zeros are preserved from Decimal arithmetic; keep this exact string shape intentional.
         res = self.guard.verify_foreign_tax_credit(1000, 100, 30.0)
         assert res["allowable_credit"] == "100"
         assert res["excess_tax_lapsed"] == "0"
@@ -40,6 +41,7 @@ class TestDTAAGuard:
 
     def test_ftc_with_treaty_rate_caps(self):
         """Treaty rate cap applies before the home-tax cap."""
+        # Treaty-rate arithmetic preserves a Decimal exponent here, so "100.0" is expected and intentional.
         res = self.guard.verify_foreign_tax_credit(
             1000, 200, 30.0, foreign_tax_limit_rate=10.0
         )
@@ -96,10 +98,11 @@ class TestInputCreditGuard:
         assert res["verified"] is True
         assert res["eligible_itc"] == "5400"
 
-    def test_gift_at_threshold_blocked(self):
-        """Gift at exactly 50,000 should be blocked because the rule is amount < 50,000."""
+    def test_gift_at_threshold_allowed(self):
+        """Gift at exactly 50,000 remains eligible; only values above that block."""
         res = self.guard.verify_itc_eligibility("gift to employee", 50000, 9000)
-        assert res["verified"] is False
+        assert res["verified"] is True
+        assert res["eligible_itc"] == "9000"
 
     def test_gift_above_threshold_blocked(self):
         res = self.guard.verify_itc_eligibility("gift to employee", 60000, 10800)
@@ -151,6 +154,13 @@ class TestFinancialGuardNumericSafety:
         assert res["potential_adjustment"] == "-5"
         assert res["safe_harbour_range"] == ["97.00", "103.00"]
 
+    def test_transfer_pricing_within_range_uses_consistent_shape(self):
+        guard = TransferPricingGuard()
+        res = guard.verify_arms_length_price("102", "100", tolerance_percent="3.0")
+        assert res["verified"] is True
+        assert res["potential_adjustment"] == "0"
+        assert res["safe_harbour_range"] == ["97.00", "103.00"]
+
     def test_transfer_pricing_blocks_invalid_numeric_input(self):
         guard = TransferPricingGuard()
         res = guard.verify_arms_length_price("draft", "100", tolerance_percent="3.0")
@@ -198,6 +208,19 @@ class TestWithholdingGuard:
         )
         res = self.guard.verify_exempt_status(form)
         assert res["verified"] is False
+
+    def test_w4_form_rejects_boolean_tax_liability(self):
+        try:
+            W4Form(
+                employee_id="E003",
+                claim_exempt=True,
+                tax_liability_last_year=True,
+                expect_refund_this_year=True,
+            )
+        except ValueError as exc:
+            assert "tax_liability_last_year must be a numeric value." in str(exc)
+        else:
+            raise AssertionError("W4Form should reject boolean tax liability values.")
 
 
 # ------------------------------------------------------------------

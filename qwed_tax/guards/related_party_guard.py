@@ -15,6 +15,7 @@ class RelatedPartyGuard:
         # Prohibited Roles (Companies Act 2013 Sec 185 / Generic Corporate Governance)
         prohibited_roles = ["DIRECTOR", "DIRECTOR_RELATIVE", "PARTNER", "PARTNER_OF_DIRECTOR", "HOLDING_COMPANY_DIRECTOR"]
         
+        lender_clean = lender_type.upper().replace(" ", "_")
         borrower_clean = borrower_role.upper().replace(" ", "_")
         try:
             parsed_interest_rate = parse_decimal_input(interest_rate, "interest_rate")
@@ -29,7 +30,10 @@ class RelatedPartyGuard:
             return {
                 "verified": False,
                 "risk": "SECTION_185_VIOLATION",
-                "message": f"Loans to {borrower_role} are prohibited under Section 185 unless specific exemptions apply (MD/WTD + Employee Scheme)."
+                "message": (
+                    f"{lender_clean} loans to {borrower_role} are prohibited under Section 185 "
+                    "unless specific exemptions apply (MD/WTD + Employee Scheme)."
+                ),
             }
             
         # Rule 2: Interest Rate Benchmarking (Section 186)

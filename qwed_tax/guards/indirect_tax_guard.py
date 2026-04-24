@@ -21,7 +21,7 @@ class InputCreditGuard:
             "CLUB_MEMBERSHIP",
             "HEALTH_INSURANCE",  # Unless mandatory by law
             "MOTOR_VEHICLE",  # With exceptions
-            "GIFT_TO_EMPLOYEE",  # If > 50,000 INR
+            "GIFT_TO_EMPLOYEE",  # Only blocked when amount exceeds 50,000 INR
         ]
 
     def verify_itc_eligibility(
@@ -37,12 +37,12 @@ class InputCreditGuard:
         except ValueError as exc:
             return {"verified": False, "eligible_itc": "0", "reason": str(exc)}
 
-        # Gift threshold: only blocked above 50,000 INR (exact match only)
-        if normalized_cat == "GIFT_TO_EMPLOYEE" and parsed_amount < Decimal("50000"):
+        # Gift threshold: gifts of 50,000 INR or less remain eligible; only amounts above that block.
+        if normalized_cat == "GIFT_TO_EMPLOYEE" and parsed_amount <= Decimal("50000"):
             return {
                 "verified": True,
                 "eligible_itc": decimal_text(parsed_tax_paid),
-                "note": "Gift below INR 50,000 threshold; ITC allowed.",
+                "note": "Gift of INR 50,000 or less; ITC allowed.",
             }
 
         # Blocked categories

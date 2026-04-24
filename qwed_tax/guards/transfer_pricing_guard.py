@@ -50,7 +50,8 @@ class TransferPricingGuard:
                     f"Transaction price {decimal_text(tx_price)} is within Safe Harbour range "
                     f"({decimal_text(lower_bound)} - {decimal_text(upper_bound)}) of ALP {decimal_text(alp_price)}."
                 ),
-                "adjustment_required": "0",
+                "safe_harbour_range": [decimal_text(lower_bound), decimal_text(upper_bound)],
+                "potential_adjustment": "0",
             }
         else:
             # Adjustment Required (Primary Adjustment)

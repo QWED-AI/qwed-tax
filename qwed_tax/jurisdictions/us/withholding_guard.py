@@ -1,13 +1,20 @@
 from decimal import Decimal
 
 from z3 import Solver, Bool, Real, RealVal, Implies, And, sat
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+from qwed_tax.numeric import parse_decimal_input
 
 class W4Form(BaseModel):
     employee_id: str
     claim_exempt: bool
     tax_liability_last_year: Decimal
     expect_refund_this_year: bool
+
+    @field_validator("tax_liability_last_year", mode="before")
+    @classmethod
+    def validate_tax_liability_last_year(cls, value):
+        return parse_decimal_input(value, "tax_liability_last_year")
 
 class WithholdingGuard:
     """

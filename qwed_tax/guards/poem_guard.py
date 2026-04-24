@@ -27,10 +27,9 @@ class PoEMGuard:
         
         Rule (India):
         Foreign Company is Resident IF:
-        1. Turnover > 50 Cr (If less, usually exempt from rigorous PoEM, but here we assume scrutiny).
+        1. Numeric turnover, asset, and payroll fields are well-formed.
         2. Fails "Active Business Outside India" (ABOI) test.
            ABOI Criteria (ALL must be true):
-           - Passive Income < 50% of Total Income (Simulated via Turnover here for simplicity)
            - Assets Outside India >= 50%
            - Employees Outside India >= 50%
            - Payroll Outside India >= 50%

@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Any, Dict
 
-from qwed_tax.numeric import parse_decimal_input
+from qwed_tax.numeric import decimal_text, parse_decimal_input
 
 class TDSGuard:
     """
@@ -12,11 +12,11 @@ class TDSGuard:
         # 2025 TDS Thresholds & Rates (Simplified based on India Income Tax Act)
         # Rates are strict Decimal to avoid float errors
         self.tds_rules = {
-            "PROFESSIONAL_FEES": {"threshold": 30000, "rate": Decimal("0.10")}, # Sec 194J
-            "CONTRACTOR_INDIVIDUAL": {"threshold": 30000, "rate": Decimal("0.01")}, # Sec 194C
-            "CONTRACTOR_FIRM": {"threshold": 30000, "rate": Decimal("0.02")},       # Sec 194C
-            "COMMISSION": {"threshold": 15000, "rate": Decimal("0.05")},            # Sec 194H
-            "RENT_LAND": {"threshold": 240000, "rate": Decimal("0.10")}             # Sec 194I
+            "PROFESSIONAL_FEES": {"threshold": Decimal("30000"), "rate": Decimal("0.10")}, # Sec 194J
+            "CONTRACTOR_INDIVIDUAL": {"threshold": Decimal("30000"), "rate": Decimal("0.01")}, # Sec 194C
+            "CONTRACTOR_FIRM": {"threshold": Decimal("30000"), "rate": Decimal("0.02")},       # Sec 194C
+            "COMMISSION": {"threshold": Decimal("15000"), "rate": Decimal("0.05")},            # Sec 194H
+            "RENT_LAND": {"threshold": Decimal("240000"), "rate": Decimal("0.10")}             # Sec 194I
         }
 
     def calculate_deduction(self, service_type: str, invoice_amount: Any, ytd_payment: Any) -> Dict[str, Any]:
@@ -37,7 +37,7 @@ class TDSGuard:
             }
         
         total_exposure = inv_amt + ytd_amt
-        threshold = Decimal(str(rule["threshold"]))
+        threshold = rule["threshold"]
         
         # Logic: If total YTD exposure (including current invoice) crosses threshold, deduct TDS.
         # Usually TDS is on the entire amount once threshold is crossed, but for simplicity here
@@ -46,9 +46,9 @@ class TDSGuard:
             deduction = inv_amt * rule["rate"]
             return {
                 "verified": True,
-                "deduction": str(deduction),
-                "net_payable": str(inv_amt - deduction),
+                "deduction": decimal_text(deduction),
+                "net_payable": decimal_text(inv_amt - deduction),
                 "section": service_type
             }
             
-        return {"verified": True, "deduction": "0", "net_payable": str(inv_amt)}
+        return {"verified": True, "deduction": "0", "net_payable": decimal_text(inv_amt)}

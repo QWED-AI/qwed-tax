@@ -1,29 +1,46 @@
-import sys
 import os
+import sys
 
 # Add parent directory to path to import qwed_tax
 sys.path.append(os.path.abspath("."))
 
 from qwed_tax.verifier import TaxPreFlight
 
+
+def _print_outcome(label: str, report: dict, allowed_text: str, blocked_text: str) -> None:
+    """Print a safe high-level outcome without echoing raw block reasons."""
+    print(f"{label}: {allowed_text if report['allowed'] else blocked_text}")
+    if report["allowed"]:
+        return
+
+    checks_run = report.get("checks_run", [])
+    if checks_run:
+        print(f"   Blocked by checks: {', '.join(checks_run)}")
+    else:
+        print("   Blocked before any verification checks ran.")
+
+
 def test_classification_guard():
     verifier = TaxPreFlight()
-    
-    # Test 1: Clear Employee (Controls behavior + pays expenses)
+
+    # Test 1: Clear Employee (controls behavior + pays expenses)
     intent_employee = {
         "action": "hire_worker",
-        "worker_type": "1099", # LLM claims Contractor
+        "worker_type": "1099",  # LLM claims contractor
         "worker_facts": {
             "provides_tools": True,
             "reimburses_expenses": True,
-            "indefinite_relationship": True
-        }
+            "indefinite_relationship": True,
+        },
     }
-    
+
     report = verifier.audit_transaction(intent_employee)
-    print(f"Test 1 (Employee disguised as 1099): {'✅ Blocked' if not report['allowed'] else '❌ Allowed'}")
-    if not report['allowed']:
-        print(f"   Reason: {report['blocks'][0]}")
+    _print_outcome(
+        "Test 1 (Employee disguised as 1099)",
+        report,
+        "X Allowed",
+        "OK Blocked",
+    )
 
     # Test 2: True Contractor
     intent_contractor = {
@@ -32,38 +49,52 @@ def test_classification_guard():
         "worker_facts": {
             "provides_tools": False,
             "reimburses_expenses": False,
-            "indefinite_relationship": False
-        }
+            "indefinite_relationship": False,
+        },
     }
     report2 = verifier.audit_transaction(intent_contractor)
-    print(f"Test 2 (True Contractor): {'✅ Allowed' if report2['allowed'] else '❌ Blocked'}")
+    _print_outcome(
+        "Test 2 (True Contractor)",
+        report2,
+        "OK Allowed",
+        "X Blocked",
+    )
 
 
 def test_nexus_guard():
     verifier = TaxPreFlight()
-    
+
     # Test 3: Nexus Violation (NY > $500k)
     intent_nexus = {
         "action": "economic_nexus",
         "state": "NY",
         "sales_data": {"amount": 500001, "transactions": 10},
-        "tax_decision": "no_tax" # Hallucination
+        "tax_decision": "no_tax",  # hallucination
     }
-    
+
     report = verifier.audit_transaction(intent_nexus)
-    print(f"Test 3 (Nexus Violation NY): {'✅ Blocked' if not report['allowed'] else '❌ Allowed'}")
-    if not report['allowed']:
-        print(f"   Reason: {report['blocks'][0]}")
+    _print_outcome(
+        "Test 3 (Nexus Violation NY)",
+        report,
+        "X Allowed",
+        "OK Blocked",
+    )
 
     # Test 4: Safe State (Below Threshold)
     intent_safe = {
         "action": "economic_nexus",
         "state": "FL",
         "sales_data": {"amount": 50000, "transactions": 10},
-        "tax_decision": "no_tax"
+        "tax_decision": "no_tax",
     }
     report2 = verifier.audit_transaction(intent_safe)
-    print(f"Test 4 (Safe Nexus FL): {'✅ Allowed' if report2['allowed'] else '❌ Blocked'}")
+    _print_outcome(
+        "Test 4 (Safe Nexus FL)",
+        report2,
+        "OK Allowed",
+        "X Blocked",
+    )
+
 
 if __name__ == "__main__":
     print("--- Running Classification Tests ---")

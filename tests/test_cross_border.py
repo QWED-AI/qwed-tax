@@ -98,3 +98,37 @@ class TestCrossBorderTax:
         assert res["metrics"]["assets_outside_ratio"] == "0.3333"
         assert res["metrics"]["employees_outside_ratio"] == "0.3333"
         assert res["metrics"]["payroll_outside_ratio"] == "0.3333"
+
+    def test_poem_blocks_inconsistent_assets_and_payroll(self):
+        guard = PoEMGuard()
+        asset_res = guard.determine_residency(
+            company_name="Bad Asset Co",
+            is_foreign_incorp=True,
+            turnover_total=1000,
+            turnover_outside_india=100,
+            assets_total=100,
+            assets_outside_india=150,
+            employees_total=10,
+            employees_outside_india=5,
+            payroll_total=100,
+            payroll_outside_india=50,
+            key_management_location="OUTSIDE",
+        )
+        assert asset_res["verified"] is False
+        assert asset_res["reason"] == "assets_outside_india cannot exceed assets_total."
+
+        payroll_res = guard.determine_residency(
+            company_name="Bad Payroll Co",
+            is_foreign_incorp=True,
+            turnover_total=1000,
+            turnover_outside_india=100,
+            assets_total=100,
+            assets_outside_india=50,
+            employees_total=10,
+            employees_outside_india=5,
+            payroll_total=100,
+            payroll_outside_india=150,
+            key_management_location="OUTSIDE",
+        )
+        assert payroll_res["verified"] is False
+        assert payroll_res["reason"] == "payroll_outside_india cannot exceed payroll_total."

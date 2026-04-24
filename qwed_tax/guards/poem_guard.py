@@ -69,6 +69,30 @@ class PoEMGuard:
                 "residency": "UNVERIFIABLE",
                 "reason": "employees_outside_india cannot exceed employees_total.",
             }
+        if parsed_assets_total < 0 or parsed_assets_outside < 0:
+            return {
+                "verified": False,
+                "residency": "UNVERIFIABLE",
+                "reason": "asset values must be non-negative numeric values.",
+            }
+        if parsed_assets_outside > parsed_assets_total:
+            return {
+                "verified": False,
+                "residency": "UNVERIFIABLE",
+                "reason": "assets_outside_india cannot exceed assets_total.",
+            }
+        if parsed_payroll_total < 0 or parsed_payroll_outside < 0:
+            return {
+                "verified": False,
+                "residency": "UNVERIFIABLE",
+                "reason": "payroll values must be non-negative numeric values.",
+            }
+        if parsed_payroll_outside > parsed_payroll_total:
+            return {
+                "verified": False,
+                "residency": "UNVERIFIABLE",
+                "reason": "payroll_outside_india cannot exceed payroll_total.",
+            }
 
         # ABOI Test Checks
         # Note: 'Passive Income' check requires P&L data, here we simplify to Asset/Emp ratios as critical proxy.

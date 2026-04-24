@@ -1,10 +1,12 @@
-from z3 import Solver, Bool, Real, Implies, And, sat
+from decimal import Decimal
+
+from z3 import Solver, Bool, Real, RealVal, Implies, And, sat
 from pydantic import BaseModel
 
 class W4Form(BaseModel):
     employee_id: str
     claim_exempt: bool
-    tax_liability_last_year: float # Using float for Z3 compatibility (representing currency)
+    tax_liability_last_year: Decimal
     expect_refund_this_year: bool
 
 class WithholdingGuard:
@@ -36,7 +38,7 @@ class WithholdingGuard:
         
         # 2. Add the User's Input as constraints
         s.add(exempt == form.claim_exempt)
-        s.add(liability_last == form.tax_liability_last_year)
+        s.add(liability_last == RealVal(str(form.tax_liability_last_year)))
         s.add(expect_no_liability == form.expect_refund_this_year)
         
         # 3. Check consistency

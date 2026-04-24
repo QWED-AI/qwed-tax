@@ -1,4 +1,7 @@
-from typing import Dict, Any
+from decimal import Decimal
+from typing import Any, Dict
+
+from qwed_tax.numeric import decimal_text, parse_decimal_input
 
 class PoEMGuard:
     """
@@ -10,14 +13,14 @@ class PoEMGuard:
     def determine_residency(self, 
                           company_name: str,
                           is_foreign_incorp: bool,
-                          turnover_total: float,
-                          turnover_outside_india: float,
-                          assets_total: float,
-                          assets_outside_india: float,
+                          turnover_total: Any,
+                          turnover_outside_india: Any,
+                          assets_total: Any,
+                          assets_outside_india: Any,
                           employees_total: int,
                           employees_outside_india: int,
-                          payroll_total: float,
-                          payroll_outside_india: float,
+                          payroll_total: Any,
+                          payroll_outside_india: Any,
                           key_management_location: str) -> Dict[str, Any]:
         """
         Determine if a foreign company is a Resident via PoEM.
@@ -39,14 +42,42 @@ class PoEMGuard:
         if not is_foreign_incorp:
             return {"verified": True, "residency": "RESIDENT", "reason": "Incorporated in India"}
 
+        try:
+            _ = parse_decimal_input(turnover_total, "turnover_total")
+            _ = parse_decimal_input(turnover_outside_india, "turnover_outside_india")
+            parsed_assets_total = parse_decimal_input(assets_total, "assets_total")
+            parsed_assets_outside = parse_decimal_input(assets_outside_india, "assets_outside_india")
+            parsed_payroll_total = parse_decimal_input(payroll_total, "payroll_total")
+            parsed_payroll_outside = parse_decimal_input(payroll_outside_india, "payroll_outside_india")
+        except ValueError as exc:
+            return {
+                "verified": False,
+                "residency": "UNVERIFIABLE",
+                "reason": str(exc),
+            }
+
         # ABOI Test Checks
         # Note: 'Passive Income' check requires P&L data, here we simplify to Asset/Emp ratios as critical proxy.
         
-        assets_ratio = assets_outside_india / assets_total if assets_total > 0 else 0
-        emp_ratio = employees_outside_india / employees_total if employees_total > 0 else 0
-        payroll_ratio = payroll_outside_india / payroll_total if payroll_total > 0 else 0
+        assets_ratio = (
+            parsed_assets_outside / parsed_assets_total if parsed_assets_total > Decimal("0") else Decimal("0")
+        )
+        emp_ratio = (
+            Decimal(employees_outside_india) / Decimal(employees_total)
+            if employees_total > 0
+            else Decimal("0")
+        )
+        payroll_ratio = (
+            parsed_payroll_outside / parsed_payroll_total
+            if parsed_payroll_total > Decimal("0")
+            else Decimal("0")
+        )
         
-        is_aboi = (assets_ratio >= 0.50) and (emp_ratio >= 0.50) and (payroll_ratio >= 0.50)
+        is_aboi = (
+            assets_ratio >= Decimal("0.50")
+            and emp_ratio >= Decimal("0.50")
+            and payroll_ratio >= Decimal("0.50")
+        )
         
         if is_aboi:
             # If Active Business is Outside India, PoEM is presumed Outside UNLESS majority board meetings in India.
@@ -67,9 +98,9 @@ class PoEMGuard:
             "residency": residency,
             "is_aboi": is_aboi,
             "metrics": {
-                "assets_outside_ratio": float(assets_ratio),
-                "employees_outside_ratio": float(emp_ratio),
-                "payroll_outside_ratio": float(payroll_ratio)
+                "assets_outside_ratio": decimal_text(assets_ratio),
+                "employees_outside_ratio": decimal_text(emp_ratio),
+                "payroll_outside_ratio": decimal_text(payroll_ratio),
             },
             "reason": reason
         }

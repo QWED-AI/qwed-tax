@@ -1,5 +1,7 @@
-from decimal import Decimal, InvalidOperation
-from typing import Dict, Any
+from decimal import Decimal
+from typing import Any, Dict
+
+from qwed_tax.numeric import parse_decimal_input
 
 class TDSGuard:
     """
@@ -17,7 +19,7 @@ class TDSGuard:
             "RENT_LAND": {"threshold": 240000, "rate": Decimal("0.10")}             # Sec 194I
         }
 
-    def calculate_deduction(self, service_type: str, invoice_amount: float, ytd_payment: float) -> Dict[str, Any]:
+    def calculate_deduction(self, service_type: str, invoice_amount: Any, ytd_payment: Any) -> Dict[str, Any]:
         """
         Verifies if TDS must be deducted before paying the vendor.
         """
@@ -26,17 +28,12 @@ class TDSGuard:
             return {"verified": True, "deduction": "0", "note": "No TDS rule found for category"}
 
         try:
-            inv_amt = Decimal(str(invoice_amount))
-            ytd_amt = Decimal(str(ytd_payment))
-        except InvalidOperation:
+            inv_amt = parse_decimal_input(invoice_amount, "invoice_amount")
+            ytd_amt = parse_decimal_input(ytd_payment, "ytd_payment")
+        except ValueError as exc:
             return {
                 "verified": False,
-                "error": "TDS verification requires numeric invoice_amount and ytd_payment values."
-            }
-        if not (inv_amt.is_finite() and ytd_amt.is_finite()):
-            return {
-                "verified": False,
-                "error": "TDS verification requires finite invoice_amount and ytd_payment values."
+                "error": str(exc),
             }
         
         total_exposure = inv_amt + ytd_amt

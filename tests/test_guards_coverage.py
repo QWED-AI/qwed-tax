@@ -64,6 +64,12 @@ class TestDTAAGuard:
         assert res["allowable_credit"] == "0"
         assert "foreign_income must be a numeric value." == res["message"]
 
+    def test_ftc_negative_inputs_block(self):
+        """FTC verification should fail closed on negative financial inputs."""
+        res = self.guard.verify_foreign_tax_credit(-1000, 100, 30.0)
+        assert res["verified"] is False
+        assert res["message"] == "foreign_income must be a non-negative numeric value."
+
 
 # ------------------------------------------------------------------
 # InputCreditGuard - ITC eligibility + GSTIN

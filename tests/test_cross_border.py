@@ -78,3 +78,23 @@ class TestCrossBorderTax:
         assert res2["metrics"]["assets_outside_ratio"] == "0.01"
         assert res2["metrics"]["employees_outside_ratio"] == "0.1"
         assert res2["metrics"]["payroll_outside_ratio"] == "0.1"
+
+    def test_poem_metrics_are_quantized_for_repeating_ratios(self):
+        guard = PoEMGuard()
+        res = guard.determine_residency(
+            company_name="Quantized Metrics Co",
+            is_foreign_incorp=True,
+            turnover_total=3,
+            turnover_outside_india=1,
+            assets_total=3,
+            assets_outside_india=1,
+            employees_total=3,
+            employees_outside_india=1,
+            payroll_total=3,
+            payroll_outside_india=1,
+            key_management_location="OUTSIDE",
+        )
+        assert res["verified"] is True
+        assert res["metrics"]["assets_outside_ratio"] == "0.3333"
+        assert res["metrics"]["employees_outside_ratio"] == "0.3333"
+        assert res["metrics"]["payroll_outside_ratio"] == "0.3333"

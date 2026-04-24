@@ -13,7 +13,7 @@ class TransferPricingGuard:
                                transaction_price: Any, 
                                benchmark_price: Any, 
                                method: str = "CUP", 
-                               tolerance_percent: Any = "3.0") -> Dict[str, Any]:
+                               tolerance_percent: Any = Decimal("3.0")) -> Dict[str, Any]:
         """
         Verify if a transaction price is within the 'Arm's Length' range.
         

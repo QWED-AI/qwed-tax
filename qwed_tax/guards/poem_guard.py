@@ -1,7 +1,9 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict
 
 from qwed_tax.numeric import decimal_text, parse_decimal_input
+
+RATIO_SCALE = Decimal("0.0001")
 
 class PoEMGuard:
     """
@@ -42,6 +44,7 @@ class PoEMGuard:
             return {"verified": True, "residency": "RESIDENT", "reason": "Incorporated in India"}
 
         try:
+            # Turnover fields are currently validated for input-shape hygiene only; ABOI uses asset, employee, and payroll ratios.
             _ = parse_decimal_input(turnover_total, "turnover_total")
             _ = parse_decimal_input(turnover_outside_india, "turnover_outside_india")
             parsed_assets_total = parse_decimal_input(assets_total, "assets_total")
@@ -54,28 +57,43 @@ class PoEMGuard:
                 "residency": "UNVERIFIABLE",
                 "reason": str(exc),
             }
+        if employees_total < 0 or employees_outside_india < 0:
+            return {
+                "verified": False,
+                "residency": "UNVERIFIABLE",
+                "reason": "employee counts must be non-negative integers.",
+            }
+        if employees_outside_india > employees_total:
+            return {
+                "verified": False,
+                "residency": "UNVERIFIABLE",
+                "reason": "employees_outside_india cannot exceed employees_total.",
+            }
 
         # ABOI Test Checks
         # Note: 'Passive Income' check requires P&L data, here we simplify to Asset/Emp ratios as critical proxy.
         
-        assets_ratio = (
+        raw_assets_ratio = (
             parsed_assets_outside / parsed_assets_total if parsed_assets_total > Decimal("0") else Decimal("0")
         )
-        emp_ratio = (
+        raw_emp_ratio = (
             Decimal(employees_outside_india) / Decimal(employees_total)
             if employees_total > 0
             else Decimal("0")
         )
-        payroll_ratio = (
+        raw_payroll_ratio = (
             parsed_payroll_outside / parsed_payroll_total
             if parsed_payroll_total > Decimal("0")
             else Decimal("0")
         )
+        assets_ratio = raw_assets_ratio.quantize(RATIO_SCALE, rounding=ROUND_HALF_UP).normalize()
+        emp_ratio = raw_emp_ratio.quantize(RATIO_SCALE, rounding=ROUND_HALF_UP).normalize()
+        payroll_ratio = raw_payroll_ratio.quantize(RATIO_SCALE, rounding=ROUND_HALF_UP).normalize()
         
         is_aboi = (
-            assets_ratio >= Decimal("0.50")
-            and emp_ratio >= Decimal("0.50")
-            and payroll_ratio >= Decimal("0.50")
+            raw_assets_ratio >= Decimal("0.50")
+            and raw_emp_ratio >= Decimal("0.50")
+            and raw_payroll_ratio >= Decimal("0.50")
         )
         
         if is_aboi:

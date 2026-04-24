@@ -13,11 +13,7 @@ def _print_outcome(label: str, report: dict, allowed_text: str, blocked_text: st
     if report["allowed"]:
         return
 
-    checks_run = report.get("checks_run", [])
-    if checks_run:
-        print(f"   Blocked by checks: {', '.join(checks_run)}")
-    else:
-        print("   Blocked before any verification checks ran.")
+    print("   Verification details intentionally redacted.")
 
 
 def test_classification_guard():

@@ -170,7 +170,11 @@ preflight = TaxPreFlight()
 report = preflight.audit_transaction({
     "action": "hire",
     "worker_type": "1099",
-    "worker_facts": {"provides_tools": True, "reimburses_expenses": True}, # Employee traits
+    "worker_facts": {
+        "provides_tools": True,
+        "reimburses_expenses": True,
+        "indefinite_relationship": True
+    }, # Employee traits
     "state": "NY", 
     "sales_data": {"amount": 600000} # Crosses Nexus
 })

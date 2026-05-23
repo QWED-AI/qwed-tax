@@ -8,7 +8,26 @@ Thank you for your interest in contributing to `qwed-tax`! We are building the w
 - We implement the **Law**, not statistical likelihoods.
 - Every check must return a binary `True` (Allowed) or `False` (Blocked), with exact reasoning.
 
-## 🛠️ Development Setup
+## 🔐 Security Contract for Tests & Docs (Fail-Closed)
+Tests and documentation are part of the verifier boundary contract.
+
+- Missing, ambiguous, unknown, or unsupported inputs **must fail closed**.
+- Tests must not normalize silent pass behavior (e.g., empty preflight payloads returning allowed).
+- Documentation/examples must not imply "best effort" or skipped checks are acceptable verification.
+- A claim should be described as verified only when:
+  1) a supported `action` is provided, and
+  2) at least one deterministic check actually executes.
+
+If a behavior is insecure, tests/docs must describe it as a bug to fix, not intended behavior.
+
+### PR checklist add-on (required)
+For changes touching verifier boundaries, ensure PR includes:
+- [ ] fail-closed tests for missing/invalid/unsupported inputs
+- [ ] explicit expected-vs-actual verification reasoning in test names or docstrings
+- [ ] documentation updates matching actual enforced behavior
+- [ ] no language that overstates assurance beyond executed checks
+
+## Development Setup
 
 1. **Clone the repo:**
    ```bash

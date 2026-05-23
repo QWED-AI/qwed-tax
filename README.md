@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/logo.svg" alt="QWED Logo" width="140" />
+
 # 💸 QWED-Tax
 **Deterministic Verification for Payroll, Tax, and Compliance**
 
@@ -69,6 +71,8 @@ if (!result.allowed) {
    alert(" Compliance Block: " + result.blocks.join(", "));
 }
 ```
+
+> 🔐 **Fail-Closed Contract:** `TaxPreFlight` is strict by design. Missing, ambiguous, or unsupported intent payloads are blocked (`allowed = false`) rather than treated as a successful verification.
 
 ### ⚔️ Why QWED-Tax?
 Unlike calculators (Avalara) or executors (Gusto), QWED is a **Verifier**. We sit *between* the AI and the Execution.
@@ -164,8 +168,13 @@ from qwed_tax.verifier import TaxPreFlight
 
 preflight = TaxPreFlight()
 report = preflight.audit_transaction({
+    "action": "hire",
     "worker_type": "1099",
-    "worker_facts": {"provides_tools": True, "reimburses_expenses": True}, # Employee traits
+    "worker_facts": {
+        "provides_tools": True,
+        "reimburses_expenses": True,
+        "indefinite_relationship": True
+    }, # Employee traits
     "state": "NY", 
     "sales_data": {"amount": 600000} # Crosses Nexus
 })
@@ -173,6 +182,8 @@ report = preflight.audit_transaction({
 if not report["allowed"]:
     print(f"🛑 BLOCKED: {report['blocks']}")
 ```
+
+> ℹ️ A claim is considered verified only when a supported `action` is provided and at least one deterministic check is actually executed.
 
 ## 📂 Examples
 Check the `examples/` directory for runnable scripts:

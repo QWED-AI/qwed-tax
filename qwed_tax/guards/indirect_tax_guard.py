@@ -2,6 +2,13 @@ from decimal import Decimal
 import re
 from typing import Any, Dict, List
 
+from qwed_tax.audit import (
+    ITC_BLOCKED_17_5,
+    ITC_ELIGIBLE,
+    ITC_GIFT_THRESHOLD,
+    ITC_PERSONAL_CONSUMPTION,
+    build_trace,
+)
 from qwed_tax.numeric import decimal_text, parse_decimal_input
 
 
@@ -38,11 +45,30 @@ class InputCreditGuard:
             return {"verified": False, "eligible_itc": "0", "reason": str(exc)}
 
         # Gift threshold: gifts of 50,000 INR or less remain eligible; only amounts above that block.
-        if normalized_cat == "GIFT_TO_EMPLOYEE" and parsed_amount <= Decimal("50000"):
+        if normalized_cat == "GIFT_TO_EMPLOYEE":
+            if parsed_amount <= Decimal("50000"):
+                return {
+                    "verified": True,
+                    "eligible_itc": decimal_text(parsed_tax_paid),
+                    "note": "Gift of INR 50,000 or less; ITC allowed.",
+                    "audit_trace": build_trace(
+                        ITC_GIFT_THRESHOLD,
+                        "ALLOWED",
+                        {"expense_category": normalized_cat, "amount": decimal_text(parsed_amount)},
+                    ),
+                }
             return {
-                "verified": True,
-                "eligible_itc": decimal_text(parsed_tax_paid),
-                "note": "Gift of INR 50,000 or less; ITC allowed.",
+                "verified": False,
+                "eligible_itc": "0",
+                "reason": (
+                    "ITC is blocked for gifts to employees exceeding INR 50,000 "
+                    "under Section 17(5)(h)."
+                ),
+                "audit_trace": build_trace(
+                    ITC_GIFT_THRESHOLD,
+                    "BLOCKED",
+                    {"expense_category": normalized_cat, "amount": decimal_text(parsed_amount)},
+                ),
             }
 
         # Blocked categories
@@ -53,6 +79,11 @@ class InputCreditGuard:
                 "reason": (
                     f"ITC is blocked for '{expense_category}' under Section 17(5) / VAT Rules."
                 ),
+                "audit_trace": build_trace(
+                    ITC_BLOCKED_17_5,
+                    "BLOCKED",
+                    {"expense_category": normalized_cat},
+                ),
             }
 
         # Personal consumption check (heuristic)
@@ -61,12 +92,22 @@ class InputCreditGuard:
                 "verified": False,
                 "eligible_itc": "0",
                 "reason": "ITC is blocked for personal consumption.",
+                "audit_trace": build_trace(
+                    ITC_PERSONAL_CONSUMPTION,
+                    "BLOCKED",
+                    {"expense_category": normalized_cat},
+                ),
             }
 
         return {
             "verified": True,
             "eligible_itc": decimal_text(parsed_tax_paid),
             "note": "Expense appears eligible for Input Tax Credit.",
+            "audit_trace": build_trace(
+                ITC_ELIGIBLE,
+                "ALLOWED",
+                {"expense_category": normalized_cat},
+            ),
         }
 
     # GSTIN check-digit alphabet: digits 0-9 followed by A-Z (base 36).

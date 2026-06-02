@@ -97,6 +97,20 @@ class GSTGuard:
             return "IGST claimed on an intra-state supply"
         return ""
 
+    @classmethod
+    def _leg_mismatch(cls, claimed: Decimal, expected: Decimal) -> bool:
+        """
+        A leg mismatches when it deviates from the expected amount.
+
+        The rounding tolerance applies only to legs that carry tax (expected > 0),
+        where half-rate division can leave a sub-paise remainder. Legs that must
+        be exactly zero (the wrong tax type for the supply) get no tolerance, so
+        even a tiny wrong-type amount is rejected.
+        """
+        if expected == 0:
+            return claimed != 0
+        return abs(claimed - expected) > cls._SPLIT_TOLERANCE
+
     def verify_gst_split(
         self,
         supplier_state: str,
@@ -151,7 +165,7 @@ class GSTGuard:
         mismatches = [
             leg
             for leg in ("cgst", "sgst", "igst")
-            if abs(claimed[leg] - expected[leg]) > self._SPLIT_TOLERANCE
+            if self._leg_mismatch(claimed[leg], expected[leg])
         ]
 
         result = {

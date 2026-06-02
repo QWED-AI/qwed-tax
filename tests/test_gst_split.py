@@ -65,6 +65,22 @@ class TestGSTSplit:
         )
         assert res["verified"] is True
 
+    def test_tiny_wrong_type_amount_blocks_no_tolerance_on_zero_leg(self):
+        # IGST must be exactly 0 on an intra-state supply. A small amount under the
+        # rounding tolerance must NOT slip through, because zero legs get no tolerance.
+        res = self.guard.verify_gst_split(
+            "KA", "KA", 1000, 18, claimed_cgst=90, claimed_sgst=90, claimed_igst="0.01"
+        )
+        assert res["verified"] is False
+        assert "IGST claimed on an intra-state supply" in res["error"]
+
+    def test_tiny_cgst_on_inter_state_blocks(self):
+        res = self.guard.verify_gst_split(
+            "KA", "MH", 1000, 18, claimed_cgst="0.01", claimed_sgst=0, claimed_igst=180
+        )
+        assert res["verified"] is False
+        assert "CGST/SGST claimed on an inter-state supply" in res["error"]
+
     # ---- fail-closed input handling ----
 
     def test_missing_supplier_state_blocks(self):

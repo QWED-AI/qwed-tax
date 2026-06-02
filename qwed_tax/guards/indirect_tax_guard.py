@@ -72,7 +72,8 @@ class InputCreditGuard:
     # GSTIN check-digit alphabet: digits 0-9 followed by A-Z (base 36).
     _GSTIN_CODES = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-    def _gstin_check_digit(self, first_14: str) -> str:
+    @staticmethod
+    def _gstin_check_digit(first_14: str) -> str:
         """
         Compute the 15th GSTIN check character from the first 14 characters.
 
@@ -84,11 +85,11 @@ class InputCreditGuard:
         """
         total = 0
         for index, char in enumerate(first_14):
-            value = self._GSTIN_CODES.index(char)
+            value = InputCreditGuard._GSTIN_CODES.index(char)
             factor = 1 if index % 2 == 0 else 2
             product = value * factor
             total += (product // 36) + (product % 36)
-        return self._GSTIN_CODES[(36 - (total % 36)) % 36]
+        return InputCreditGuard._GSTIN_CODES[(36 - (total % 36)) % 36]
 
     def verify_gstin_format(self, gstin: str) -> Dict[str, Any]:
         """
@@ -102,14 +103,10 @@ class InputCreditGuard:
         if not re.match(pattern, gstin):
             return {"verified": False, "error": "Invalid GSTIN format."}
 
-        expected_check = self._gstin_check_digit(gstin[:14])
-        if gstin[14] != expected_check:
-            return {
-                "verified": False,
-                "error": (
-                    f"Invalid GSTIN checksum: expected check digit "
-                    f"'{expected_check}', got '{gstin[14]}'."
-                ),
-            }
+        # Do not echo the correct check digit back to the caller: revealing it
+        # would turn this validator into an oracle for fabricating GSTINs that
+        # pass both format and checksum checks.
+        if gstin[14] != self._gstin_check_digit(gstin[:14]):
+            return {"verified": False, "error": "Invalid GSTIN checksum."}
 
         return {"verified": True}

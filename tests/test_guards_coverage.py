@@ -115,13 +115,23 @@ class TestInputCreditGuard:
         assert res["verified"] is False
 
     def test_gstin_valid(self):
-        res = self.guard.verify_gstin_format("22AAAAA0000A1Z5")
+        # Real-world GSTIN with a correct base-36 check digit.
+        res = self.guard.verify_gstin_format("27AAPFU0939F1ZV")
         assert res["verified"] is True
 
     def test_gstin_invalid(self):
         res = self.guard.verify_gstin_format("INVALID")
         assert res["verified"] is False
         assert "Invalid GSTIN" in res["error"]
+
+    def test_gstin_valid_format_wrong_checksum(self):
+        # Matches the structural pattern but the 15th check digit is wrong.
+        # The error stays generic on purpose (no correct-digit disclosure).
+        res = self.guard.verify_gstin_format("22AAAAA0000A1Z5")
+        assert res["verified"] is False
+        assert "checksum" in res["error"]
+        # The correct check digit must NOT be echoed back (anti-oracle).
+        assert "'C'" not in res["error"]
 
     def test_invalid_numeric_itc_input_blocks(self):
         res = self.guard.verify_itc_eligibility("office supplies", "pending", 180)

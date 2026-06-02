@@ -69,12 +69,44 @@ class InputCreditGuard:
             "note": "Expense appears eligible for Input Tax Credit.",
         }
 
+    # GSTIN check-digit alphabet: digits 0-9 followed by A-Z (base 36).
+    _GSTIN_CODES = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+    @staticmethod
+    def _gstin_check_digit(first_14: str) -> str:
+        """
+        Compute the 15th GSTIN check character from the first 14 characters.
+
+        Algorithm (GSTN spec):
+          - Map each character to its index in [0-9A-Z] (base 36).
+          - Multiply by an alternating factor (1, 2, 1, 2, ... left to right).
+          - For each product, add (product // 36) + (product % 36) to a sum.
+          - check = (36 - (sum % 36)) % 36, mapped back to the alphabet.
+        """
+        total = 0
+        for index, char in enumerate(first_14):
+            value = InputCreditGuard._GSTIN_CODES.index(char)
+            factor = 1 if index % 2 == 0 else 2
+            product = value * factor
+            total += (product // 36) + (product % 36)
+        return InputCreditGuard._GSTIN_CODES[(36 - (total % 36)) % 36]
+
     def verify_gstin_format(self, gstin: str) -> Dict[str, Any]:
         """
-        Deterministic checksum validation for Indian GSTIN.
-        Format: 22AAAAA0000A1Z5 (15 chars)
+        Deterministic GSTIN validation: structural format plus the 15th-digit
+        checksum (base-36 GSTN algorithm).
+
+        Format: 22AAAAA0000A1Z5 (15 chars). A string that matches the format but
+        carries an incorrect check digit is rejected as a checksum failure.
         """
         pattern = r"^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$"
         if not re.match(pattern, gstin):
             return {"verified": False, "error": "Invalid GSTIN format."}
+
+        # Do not echo the correct check digit back to the caller: revealing it
+        # would turn this validator into an oracle for fabricating GSTINs that
+        # pass both format and checksum checks.
+        if gstin[14] != self._gstin_check_digit(gstin[:14]):
+            return {"verified": False, "error": "Invalid GSTIN checksum."}
+
         return {"verified": True}

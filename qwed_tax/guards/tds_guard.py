@@ -49,7 +49,6 @@ class TDSGuard:
                 "verified": True,
                 "deduction": decimal_text(deduction),
                 "net_payable": decimal_text(inv_amt - deduction),
-                "section": service_type,
                 "audit_trace": build_trace(
                     rule["rule"],
                     "DEDUCTION_REQUIRED",

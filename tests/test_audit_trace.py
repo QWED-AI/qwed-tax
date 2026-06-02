@@ -1,5 +1,7 @@
 """Tests for structured statutory audit-trace on guard verdicts."""
 
+import pytest
+
 from qwed_tax.audit import build_trace, ITC_BLOCKED_17_5, JURISDICTION_INDIA
 from qwed_tax.guards.indirect_tax_guard import InputCreditGuard
 from qwed_tax.guards.tds_guard import TDSGuard
@@ -24,6 +26,18 @@ class TestBuildTrace:
         src["a"] = 2
         assert trace["inputs"]["a"] == 1  # snapshot, not a live reference
 
+    def test_trace_inputs_deep_copied(self):
+        src = {"legs": ["cgst"]}
+        trace = build_trace(ITC_BLOCKED_17_5, "BLOCKED", src)
+        src["legs"].append("sgst")
+        assert trace["inputs"]["legs"] == ["cgst"]  # nested mutation must not leak
+
+    def test_rule_ref_is_immutable(self):
+        import dataclasses
+
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            ITC_BLOCKED_17_5.rule_id = "tampered"
+
 
 class TestITCAuditTrace:
     def setup_method(self):
@@ -41,6 +55,9 @@ class TestITCAuditTrace:
     def test_personal_consumption_emits_trace(self):
         res = self.guard.verify_itc_eligibility("personal expense", 500, 90)
         assert res["audit_trace"]["rule_id"] == "ITC_PERSONAL_CONSUMPTION"
+        # Personal consumption is blocked under 17(5)(g), not the apportionment
+        # rule 17(1).
+        assert res["audit_trace"]["statute"] == "CGST Act, Section 17(5)(g)"
 
     def test_eligible_expense_emits_trace(self):
         res = self.guard.verify_itc_eligibility("office supplies", 1000, 180)
@@ -51,6 +68,15 @@ class TestITCAuditTrace:
     def test_gift_below_threshold_emits_trace(self):
         res = self.guard.verify_itc_eligibility("gift to employee", 30000, 5400)
         assert res["audit_trace"]["rule_id"] == "ITC_GIFT_THRESHOLD"
+        assert res["audit_trace"]["outcome"] == "ALLOWED"
+
+    def test_gift_above_threshold_emits_specific_17_5_h_trace(self):
+        # Over-threshold gift must cite the specific 17(5)(h), not the general 17(5).
+        res = self.guard.verify_itc_eligibility("gift to employee", 60000, 10800)
+        assert res["verified"] is False
+        assert res["audit_trace"]["rule_id"] == "ITC_GIFT_THRESHOLD"
+        assert res["audit_trace"]["statute"] == "CGST Act, Section 17(5)(h)"
+        assert res["audit_trace"]["outcome"] == "BLOCKED"
 
 
 class TestTDSAuditTrace:

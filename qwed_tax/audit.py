@@ -16,30 +16,31 @@ duplicating inline literals.
 
 from __future__ import annotations
 
+import copy
+from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 JURISDICTION_INDIA = "INDIA"
 
 
+@dataclass(frozen=True)
 class RuleRef:
-    """A canonical (rule_id, statute, jurisdiction) reference."""
+    """A canonical, immutable (rule_id, statute, jurisdiction) reference."""
 
-    __slots__ = ("rule_id", "statute", "jurisdiction")
-
-    def __init__(self, rule_id: str, statute: str, jurisdiction: str = JURISDICTION_INDIA):
-        self.rule_id = rule_id
-        self.statute = statute
-        self.jurisdiction = jurisdiction
+    rule_id: str
+    statute: str
+    jurisdiction: str = JURISDICTION_INDIA
 
 
 # --- Centralised rule references -------------------------------------------
 # Input Tax Credit (GST)
 ITC_BLOCKED_17_5 = RuleRef("ITC_BLOCKED_17_5", "CGST Act, Section 17(5)")
 ITC_PERSONAL_CONSUMPTION = RuleRef(
-    "ITC_PERSONAL_CONSUMPTION", "CGST Act, Section 17(1)"
+    "ITC_PERSONAL_CONSUMPTION", "CGST Act, Section 17(5)(g)"
 )
 ITC_ELIGIBLE = RuleRef("ITC_ELIGIBLE", "CGST Act, Section 16")
 ITC_GIFT_THRESHOLD = RuleRef("ITC_GIFT_THRESHOLD", "CGST Act, Section 17(5)(h)")
+
 
 # Tax Deducted at Source (Income Tax Act)
 TDS_194J = RuleRef("TDS_194J", "Income Tax Act, Section 194J")
@@ -71,5 +72,5 @@ def build_trace(
         "statute": rule.statute,
         "jurisdiction": rule.jurisdiction,
         "outcome": outcome,
-        "inputs": dict(inputs) if inputs else {},
+        "inputs": copy.deepcopy(inputs) if inputs else {},
     }

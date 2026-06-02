@@ -45,14 +45,28 @@ class InputCreditGuard:
             return {"verified": False, "eligible_itc": "0", "reason": str(exc)}
 
         # Gift threshold: gifts of 50,000 INR or less remain eligible; only amounts above that block.
-        if normalized_cat == "GIFT_TO_EMPLOYEE" and parsed_amount <= Decimal("50000"):
+        if normalized_cat == "GIFT_TO_EMPLOYEE":
+            if parsed_amount <= Decimal("50000"):
+                return {
+                    "verified": True,
+                    "eligible_itc": decimal_text(parsed_tax_paid),
+                    "note": "Gift of INR 50,000 or less; ITC allowed.",
+                    "audit_trace": build_trace(
+                        ITC_GIFT_THRESHOLD,
+                        "ALLOWED",
+                        {"expense_category": normalized_cat, "amount": decimal_text(parsed_amount)},
+                    ),
+                }
             return {
-                "verified": True,
-                "eligible_itc": decimal_text(parsed_tax_paid),
-                "note": "Gift of INR 50,000 or less; ITC allowed.",
+                "verified": False,
+                "eligible_itc": "0",
+                "reason": (
+                    "ITC is blocked for gifts to employees exceeding INR 50,000 "
+                    "under Section 17(5)(h)."
+                ),
                 "audit_trace": build_trace(
                     ITC_GIFT_THRESHOLD,
-                    "ALLOWED",
+                    "BLOCKED",
                     {"expense_category": normalized_cat, "amount": decimal_text(parsed_amount)},
                 ),
             }

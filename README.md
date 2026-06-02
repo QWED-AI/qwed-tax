@@ -121,7 +121,9 @@ A deterministic verification layer for tax logic supported by `z3-solver` and `p
 ### 🇮🇳 India (Income Tax / GST / FEMA)
 1.  **CryptoTaxGuard**: Enforces **Section 115BBH** (No set-off of VDA losses).
 2.  **InvestmentGuard**: Distinguishes **Intraday (Speculative)** from **Delivery (Capital Gains)** using strict rules.
-3.  **GSTGuard**: Verifies **Reverse Charge Mechanism (RCM)** for GTA/Legal services.
+3.  **GSTGuard**:
+    *   **Reverse Charge Mechanism (RCM)**: Verifies liability for notified services — GTA, Legal, Security, Director, Sponsorship, Renting of motor vehicle, and Import of service.
+    *   **CGST/SGST/IGST split**: Verifies the tax breakup against the place of supply (intra-state vs inter-state).
 4.  **RemittanceGuard (FEMA)**:
     *   **LRS Limit**: Enforces $250,000 annual limit per PAN.
     *   **Prohibited**: Blocks Gambling, Lottery, and Racing remittances.

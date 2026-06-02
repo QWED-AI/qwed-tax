@@ -1,9 +1,19 @@
 from enum import Enum
-from typing import Any, Dict
+from typing import Any, Callable, Dict, NamedTuple
 from decimal import Decimal
 
-from pydantic import BaseModel
-
+from qwed_tax.audit import (
+    RCM_DIRECTOR,
+    RCM_GTA,
+    RCM_IMPORT_SERVICE,
+    RCM_LEGAL,
+    RCM_NOT_APPLICABLE,
+    RCM_RENTING_VEHICLE,
+    RCM_SECURITY,
+    RCM_SPONSORSHIP,
+    RuleRef,
+    build_trace,
+)
 from qwed_tax.numeric import decimal_text, parse_decimal_input
 
 class EntityType(str, Enum):
@@ -17,47 +27,125 @@ class ServiceType(str, Enum):
     LEGAL = "LEGAL" # Advocates
     SECURITY = "SECURITY"
     RENTING_VEHICLE = "RENTING_VEHICLE"
+    DIRECTOR = "DIRECTOR"  # Services by a director to the company
+    SPONSORSHIP = "SPONSORSHIP"
+    IMPORT_SERVICE = "IMPORT_SERVICE"  # Service imported from outside India
     OTHER = "OTHER"
+
+
+class RCMRule(NamedTuple):
+    """A declarative reverse-charge rule for one notified service."""
+
+    # Predicate over (provider, recipient) deciding if RCM applies.
+    applies: Callable[["EntityType", "EntityType"], bool]
+    reason: str
+    rule_ref: RuleRef
 
 class GSTGuard:
     """
     Verifies GST Liability: Forward Charge (FCM) vs Reverse Charge (RCM).
-    Source: Audit Trace d60764a02d73
-    """
-    
-    def verify_rcm_applicability(self, service: ServiceType, provider: EntityType, recipient: EntityType) -> dict:
-        """
-        Determines who is liable to pay tax.
-        """
-        # Deterministic RCM Rules (Simplified for demo)
-        
-        is_rcm = False
-        reason = "Forward Charge (Provider pays)"
-        
-        # Rule: GTA Service provided to Body Corporate -> RCM
-        if service == ServiceType.GTA:
-            if recipient in [EntityType.BODY_CORPORATE, EntityType.PARTNERSHIP]:
-                is_rcm = True
-                reason = "GTA service received by Body Corporate/Partnership attracts RCM."
-        
-        # Rule: Legal Service provided to Business -> RCM
-        elif service == ServiceType.LEGAL:
-            if recipient == EntityType.BODY_CORPORATE:
-                is_rcm = True
-                reason = "Legal service to Business Entity attracts RCM."
 
-        # Rule: Security Services provided by Non-Body Corporate to Registered Person -> RCM
-        elif service == ServiceType.SECURITY:
-            if provider != EntityType.BODY_CORPORATE and recipient == EntityType.BODY_CORPORATE:
-               is_rcm = True
-               reason = "Security by Non-Body Corporate attracts RCM."
+    RCM applicability is expressed as a declarative table of notified
+    services, each with its predicate and statutory reference. This keeps
+    coverage auditable and easy to extend.
+    """
+
+    # Declarative RCM rule table. Models CGST Act, Section 9(3) notified
+    # services (Notification 13/2017-CT(R) etc.). Section 9(4) (unregistered
+    # supplier) is intentionally out of scope; IMPORT_SERVICE here is the
+    # IGST-notification reverse charge (Notification 10/2017-IT(R)), not a 9(4)
+    # path.
+    _RCM_RULES: Dict["ServiceType", RCMRule] = {
+        ServiceType.GTA: RCMRule(
+            applies=lambda provider, recipient: recipient
+            in (EntityType.BODY_CORPORATE, EntityType.PARTNERSHIP),
+            reason="GTA service received by Body Corporate/Partnership attracts RCM.",
+            rule_ref=RCM_GTA,
+        ),
+        ServiceType.LEGAL: RCMRule(
+            applies=lambda provider, recipient: recipient
+            in (EntityType.BODY_CORPORATE, EntityType.PARTNERSHIP),
+            reason="Legal service to a Business Entity (Body Corporate/Partnership) attracts RCM.",
+            rule_ref=RCM_LEGAL,
+        ),
+        ServiceType.SECURITY: RCMRule(
+            applies=lambda provider, recipient: provider != EntityType.BODY_CORPORATE
+            and recipient == EntityType.BODY_CORPORATE,
+            reason="Security service by a Non-Body-Corporate to a registered person attracts RCM.",
+            rule_ref=RCM_SECURITY,
+        ),
+        ServiceType.DIRECTOR: RCMRule(
+            applies=lambda provider, recipient: recipient == EntityType.BODY_CORPORATE,
+            reason="Services supplied by a director to the company attract RCM.",
+            rule_ref=RCM_DIRECTOR,
+        ),
+        ServiceType.SPONSORSHIP: RCMRule(
+            applies=lambda provider, recipient: recipient
+            in (EntityType.BODY_CORPORATE, EntityType.PARTNERSHIP),
+            reason="Sponsorship service to a Body Corporate/Partnership attracts RCM.",
+            rule_ref=RCM_SPONSORSHIP,
+        ),
+        ServiceType.RENTING_VEHICLE: RCMRule(
+            applies=lambda provider, recipient: provider != EntityType.BODY_CORPORATE
+            and recipient == EntityType.BODY_CORPORATE,
+            reason="Renting of a motor vehicle by a Non-Body-Corporate to a Body Corporate attracts RCM.",
+            rule_ref=RCM_RENTING_VEHICLE,
+        ),
+        ServiceType.IMPORT_SERVICE: RCMRule(
+            applies=lambda provider, recipient: True,
+            reason="Import of service: the recipient in India is liable under RCM.",
+            rule_ref=RCM_IMPORT_SERVICE,
+        ),
+    }
+
+    def verify_rcm_applicability(
+        self, service: ServiceType, provider: EntityType, recipient: EntityType
+    ) -> dict:
+        """
+        Determine who is liable to pay tax (forward charge vs reverse charge).
+
+        Accepts either enum members or their raw string values (e.g. "GTA",
+        "BODY_CORPORATE"), so JSON-sourced payloads work without pre-conversion.
+        """
+        service = self._coerce(ServiceType, service, ServiceType.OTHER)
+        provider = self._coerce(EntityType, provider, EntityType.INDIVIDUAL)
+        recipient = self._coerce(EntityType, recipient, EntityType.INDIVIDUAL)
+
+        rule = self._RCM_RULES.get(service)
+        is_rcm = bool(rule and rule.applies(provider, recipient))
+
+        if is_rcm:
+            reason = rule.reason
+            rule_ref = rule.rule_ref
+        else:
+            reason = "Forward Charge (Provider pays)"
+            rule_ref = RCM_NOT_APPLICABLE
 
         return {
             "verified": True,
             "liability": "RECIPIENT (RCM)" if is_rcm else "PROVIDER (FCM)",
             "is_rcm": is_rcm,
-            "reason": reason
+            "reason": reason,
+            "audit_trace": build_trace(
+                rule_ref,
+                "REVERSE_CHARGE" if is_rcm else "FORWARD_CHARGE",
+                {
+                    "service": service.value,
+                    "provider": provider.value,
+                    "recipient": recipient.value,
+                },
+            ),
         }
+
+    @staticmethod
+    def _coerce(enum_cls, value, default):
+        """Return an enum member for either an enum or its raw string value."""
+        if isinstance(value, enum_cls):
+            return value
+        try:
+            return enum_cls(value)
+        except ValueError:
+            return default
 
     # Two paise of tolerance absorbs benign half-rate rounding on the CGST/SGST
     # legs without letting a materially wrong split slip through.

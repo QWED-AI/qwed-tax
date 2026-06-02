@@ -49,6 +49,9 @@ class TDSGuard:
                 "verified": True,
                 "deduction": decimal_text(deduction),
                 "net_payable": decimal_text(inv_amt - deduction),
+                # Kept for backward compatibility; audit_trace carries the
+                # canonical statutory reference.
+                "section": service_type,
                 "audit_trace": build_trace(
                     rule["rule"],
                     "DEDUCTION_REQUIRED",

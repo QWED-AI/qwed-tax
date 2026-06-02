@@ -89,8 +89,9 @@ class TestTDSAuditTrace:
         assert res["audit_trace"]["rule_id"] == "TDS_194J"
         assert res["audit_trace"]["statute"] == "Income Tax Act, Section 194J"
         assert res["audit_trace"]["outcome"] == "DEDUCTION_REQUIRED"
-        # Legacy keys preserved.
+        # Legacy keys preserved (additive-only contract).
         assert res["deduction"] == "5000.00"
+        assert res["section"] == "PROFESSIONAL_FEES"
 
     def test_below_threshold_emits_trace(self):
         res = self.guard.calculate_deduction("PROFESSIONAL_FEES", 1000, 0)

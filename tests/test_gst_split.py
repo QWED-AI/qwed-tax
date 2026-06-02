@@ -94,3 +94,19 @@ class TestGSTSplit:
         )
         assert res["verified"] is False
         assert "non-negative" in res["error"]
+
+    def test_negative_claimed_igst_blocks(self):
+        # A small negative leg within the tolerance window must still fail closed.
+        res = self.guard.verify_gst_split(
+            "KA", "KA", 1000, 18, claimed_cgst=90, claimed_sgst=90, claimed_igst="-0.01"
+        )
+        assert res["verified"] is False
+        assert "claimed_igst must be non-negative" in res["error"]
+
+    def test_negative_claimed_cgst_blocks(self):
+        res = self.guard.verify_gst_split(
+            "KA", "MH", 1000, 18, claimed_cgst="-0.01", claimed_sgst=0, claimed_igst=180
+        )
+        assert res["verified"] is False
+        assert "claimed_cgst must be non-negative" in res["error"]
+

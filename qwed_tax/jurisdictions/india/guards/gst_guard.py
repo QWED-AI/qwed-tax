@@ -63,6 +63,40 @@ class GSTGuard:
     # legs without letting a materially wrong split slip through.
     _SPLIT_TOLERANCE = Decimal("0.02")
 
+    _NUMERIC_FIELDS = (
+        "taxable_value",
+        "gst_rate",
+        "claimed_cgst",
+        "claimed_sgst",
+        "claimed_igst",
+    )
+
+    @staticmethod
+    def _parse_split_inputs(values: Dict[str, Any]) -> Dict[str, Decimal]:
+        """Parse all numeric inputs to Decimal, rejecting negatives. Raises ValueError."""
+        parsed: Dict[str, Decimal] = {}
+        for field in GSTGuard._NUMERIC_FIELDS:
+            amount = parse_decimal_input(values[field], field)
+            if amount < 0:
+                raise ValueError(f"{field} must be non-negative.")
+            parsed[field] = amount
+        return parsed
+
+    @staticmethod
+    def _expected_split(total_tax: Decimal, is_interstate: bool) -> Dict[str, Decimal]:
+        if is_interstate:
+            return {"cgst": Decimal("0"), "sgst": Decimal("0"), "igst": total_tax}
+        half = total_tax / Decimal("2")
+        return {"cgst": half, "sgst": half, "igst": Decimal("0")}
+
+    @staticmethod
+    def _wrong_type_note(is_interstate: bool, claimed: Dict[str, Decimal]) -> str:
+        if is_interstate and (claimed["cgst"] or claimed["sgst"]):
+            return "CGST/SGST claimed on an inter-state supply"
+        if not is_interstate and claimed["igst"]:
+            return "IGST claimed on an intra-state supply"
+        return ""
+
     def verify_gst_split(
         self,
         supplier_state: str,
@@ -83,7 +117,7 @@ class GSTGuard:
                 IGST = taxable_value * rate, and CGST/SGST must be 0.
 
         This verifies the *split*, not the rate itself (rate is an input).
-        Fails closed on missing states or non-finite numeric inputs.
+        Fails closed on missing states or non-finite/negative numeric inputs.
         """
         if not isinstance(supplier_state, str) or not supplier_state.strip():
             return {"verified": False, "error": "supplier_state is required."}
@@ -91,32 +125,29 @@ class GSTGuard:
             return {"verified": False, "error": "place_of_supply is required."}
 
         try:
-            value = parse_decimal_input(taxable_value, "taxable_value")
-            rate = parse_decimal_input(gst_rate, "gst_rate")
-            cgst = parse_decimal_input(claimed_cgst, "claimed_cgst")
-            sgst = parse_decimal_input(claimed_sgst, "claimed_sgst")
-            igst = parse_decimal_input(claimed_igst, "claimed_igst")
+            parsed = self._parse_split_inputs(
+                {
+                    "taxable_value": taxable_value,
+                    "gst_rate": gst_rate,
+                    "claimed_cgst": claimed_cgst,
+                    "claimed_sgst": claimed_sgst,
+                    "claimed_igst": claimed_igst,
+                }
+            )
         except ValueError as exc:
             return {"verified": False, "error": str(exc)}
 
-        if value < 0 or rate < 0:
-            return {
-                "verified": False,
-                "error": "taxable_value and gst_rate must be non-negative.",
-            }
+        total_tax = parsed["taxable_value"] * parsed["gst_rate"] / Decimal("100")
+        is_interstate = (
+            supplier_state.strip().upper() != place_of_supply.strip().upper()
+        )
 
-        total_tax = value * rate / Decimal("100")
-        is_interstate = supplier_state.strip().upper() != place_of_supply.strip().upper()
-
-        if is_interstate:
-            supply_type = "INTER_STATE"
-            expected = {"cgst": Decimal("0"), "sgst": Decimal("0"), "igst": total_tax}
-        else:
-            supply_type = "INTRA_STATE"
-            half = total_tax / Decimal("2")
-            expected = {"cgst": half, "sgst": half, "igst": Decimal("0")}
-
-        claimed = {"cgst": cgst, "sgst": sgst, "igst": igst}
+        expected = self._expected_split(total_tax, is_interstate)
+        claimed = {
+            "cgst": parsed["claimed_cgst"],
+            "sgst": parsed["claimed_sgst"],
+            "igst": parsed["claimed_igst"],
+        }
         mismatches = [
             leg
             for leg in ("cgst", "sgst", "igst")
@@ -124,28 +155,24 @@ class GSTGuard:
         ]
 
         result = {
-            "supply_type": supply_type,
+            "supply_type": "INTER_STATE" if is_interstate else "INTRA_STATE",
             "expected": {leg: decimal_text(amount) for leg, amount in expected.items()},
             "claimed": {leg: decimal_text(amount) for leg, amount in claimed.items()},
         }
 
         if mismatches:
-            wrong_type = (
-                "CGST/SGST claimed on an inter-state supply"
-                if is_interstate and (cgst or sgst)
-                else "IGST claimed on an intra-state supply"
-                if not is_interstate and igst
-                else None
-            )
             reason = (
-                f"GST split mismatch on {supply_type} supply ({', '.join(mismatches)})."
+                f"GST split mismatch on {result['supply_type']} supply "
+                f"({', '.join(mismatches)})."
             )
-            if wrong_type:
-                reason = f"{reason} {wrong_type}."
+            note = self._wrong_type_note(is_interstate, claimed)
+            if note:
+                reason = f"{reason} {note}."
             result["verified"] = False
             result["error"] = reason
             return result
 
         result["verified"] = True
         return result
+
 

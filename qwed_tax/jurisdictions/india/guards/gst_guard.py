@@ -50,7 +50,11 @@ class GSTGuard:
     coverage auditable and easy to extend.
     """
 
-    # Declarative RCM rule table (CGST Act, Section 9(3)/(4) notified services).
+    # Declarative RCM rule table. Models CGST Act, Section 9(3) notified
+    # services (Notification 13/2017-CT(R) etc.). Section 9(4) (unregistered
+    # supplier) is intentionally out of scope; IMPORT_SERVICE here is the
+    # IGST-notification reverse charge (Notification 10/2017-IT(R)), not a 9(4)
+    # path.
     _RCM_RULES: Dict["ServiceType", RCMRule] = {
         ServiceType.GTA: RCMRule(
             applies=lambda provider, recipient: recipient
@@ -59,8 +63,9 @@ class GSTGuard:
             rule_ref=RCM_GTA,
         ),
         ServiceType.LEGAL: RCMRule(
-            applies=lambda provider, recipient: recipient == EntityType.BODY_CORPORATE,
-            reason="Legal service to a Business Entity attracts RCM.",
+            applies=lambda provider, recipient: recipient
+            in (EntityType.BODY_CORPORATE, EntityType.PARTNERSHIP),
+            reason="Legal service to a Business Entity (Body Corporate/Partnership) attracts RCM.",
             rule_ref=RCM_LEGAL,
         ),
         ServiceType.SECURITY: RCMRule(
@@ -98,7 +103,14 @@ class GSTGuard:
     ) -> dict:
         """
         Determine who is liable to pay tax (forward charge vs reverse charge).
+
+        Accepts either enum members or their raw string values (e.g. "GTA",
+        "BODY_CORPORATE"), so JSON-sourced payloads work without pre-conversion.
         """
+        service = self._coerce(ServiceType, service, ServiceType.OTHER)
+        provider = self._coerce(EntityType, provider, EntityType.INDIVIDUAL)
+        recipient = self._coerce(EntityType, recipient, EntityType.INDIVIDUAL)
+
         rule = self._RCM_RULES.get(service)
         is_rcm = bool(rule and rule.applies(provider, recipient))
 
@@ -124,6 +136,16 @@ class GSTGuard:
                 },
             ),
         }
+
+    @staticmethod
+    def _coerce(enum_cls, value, default):
+        """Return an enum member for either an enum or its raw string value."""
+        if isinstance(value, enum_cls):
+            return value
+        try:
+            return enum_cls(value)
+        except ValueError:
+            return default
 
     # Two paise of tolerance absorbs benign half-rate rounding on the CGST/SGST
     # legs without letting a materially wrong split slip through.

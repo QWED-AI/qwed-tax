@@ -38,6 +38,21 @@ class TestRCMApplicability:
         assert res["is_rcm"] is True
         assert res["audit_trace"]["rule_id"] == "RCM_LEGAL"
 
+    def test_legal_to_partnership_is_rcm(self):
+        # A partnership firm is a "business entity" under Notification 13/2017
+        # Sl. 2, so legal services to it also attract RCM.
+        res = self.guard.verify_rcm_applicability(
+            ServiceType.LEGAL, EntityType.INDIVIDUAL, EntityType.PARTNERSHIP
+        )
+        assert res["is_rcm"] is True
+        assert res["audit_trace"]["rule_id"] == "RCM_LEGAL"
+
+    def test_legal_to_individual_is_forward_charge(self):
+        res = self.guard.verify_rcm_applicability(
+            ServiceType.LEGAL, EntityType.INDIVIDUAL, EntityType.INDIVIDUAL
+        )
+        assert res["is_rcm"] is False
+
     def test_security_by_non_body_corporate_is_rcm(self):
         res = self.guard.verify_rcm_applicability(
             ServiceType.SECURITY, EntityType.INDIVIDUAL, EntityType.BODY_CORPORATE
@@ -61,12 +76,26 @@ class TestRCMApplicability:
         assert res["is_rcm"] is True
         assert res["audit_trace"]["rule_id"] == "RCM_DIRECTOR"
 
+    def test_director_service_to_non_body_corporate_is_forward_charge(self):
+        res = self.guard.verify_rcm_applicability(
+            ServiceType.DIRECTOR, EntityType.INDIVIDUAL, EntityType.PARTNERSHIP
+        )
+        assert res["is_rcm"] is False
+        assert res["audit_trace"]["rule_id"] == "RCM_NOT_APPLICABLE"
+
     def test_sponsorship_to_body_corporate_is_rcm(self):
         res = self.guard.verify_rcm_applicability(
             ServiceType.SPONSORSHIP, EntityType.INDIVIDUAL, EntityType.BODY_CORPORATE
         )
         assert res["is_rcm"] is True
         assert res["audit_trace"]["rule_id"] == "RCM_SPONSORSHIP"
+
+    def test_sponsorship_to_individual_is_forward_charge(self):
+        res = self.guard.verify_rcm_applicability(
+            ServiceType.SPONSORSHIP, EntityType.INDIVIDUAL, EntityType.INDIVIDUAL
+        )
+        assert res["is_rcm"] is False
+        assert res["audit_trace"]["rule_id"] == "RCM_NOT_APPLICABLE"
 
     def test_renting_vehicle_by_non_body_corporate_is_rcm(self):
         res = self.guard.verify_rcm_applicability(
@@ -105,3 +134,15 @@ class TestRCMApplicability:
             ServiceType.GTA, EntityType.INDIVIDUAL, EntityType.BODY_CORPORATE
         )
         assert set(["verified", "liability", "is_rcm", "reason"]).issubset(res.keys())
+
+    def test_accepts_raw_string_inputs(self):
+        # JSON-sourced payloads pass raw strings; these must not crash and must
+        # produce the same verdict as the enum members.
+        res = self.guard.verify_rcm_applicability("GTA", "INDIVIDUAL", "BODY_CORPORATE")
+        assert res["is_rcm"] is True
+        assert res["audit_trace"]["inputs"]["service"] == "GTA"
+
+    def test_unknown_string_service_is_forward_charge(self):
+        res = self.guard.verify_rcm_applicability("MYSTERY", "INDIVIDUAL", "BODY_CORPORATE")
+        assert res["is_rcm"] is False
+        assert res["audit_trace"]["rule_id"] == "RCM_NOT_APPLICABLE"

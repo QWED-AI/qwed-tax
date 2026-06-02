@@ -49,6 +49,25 @@ TDS_194H = RuleRef("TDS_194H", "Income Tax Act, Section 194H")
 TDS_194I = RuleRef("TDS_194I", "Income Tax Act, Section 194I")
 
 
+# GST Reverse Charge Mechanism (CGST Act, Section 9(3) notified categories)
+RCM_GTA = RuleRef("RCM_GTA", "Notification 13/2017-CT(R), Sl. 1 (GTA)")
+RCM_LEGAL = RuleRef("RCM_LEGAL", "Notification 13/2017-CT(R), Sl. 2 (Legal)")
+RCM_SECURITY = RuleRef("RCM_SECURITY", "Notification 29/2018-CT(R) (Security)")
+RCM_DIRECTOR = RuleRef("RCM_DIRECTOR", "Notification 13/2017-CT(R), Sl. 6 (Director)")
+RCM_SPONSORSHIP = RuleRef(
+    "RCM_SPONSORSHIP", "Notification 13/2017-CT(R), Sl. 4 (Sponsorship)"
+)
+RCM_RENTING_VEHICLE = RuleRef(
+    "RCM_RENTING_VEHICLE", "Notification 13/2017-CT(R), Sl. 15 (Renting of motor vehicle)"
+)
+RCM_IMPORT_SERVICE = RuleRef(
+    "RCM_IMPORT_SERVICE", "Notification 10/2017-IT(R), Sl. 1 (Import of service)"
+)
+RCM_NOT_APPLICABLE = RuleRef(
+    "RCM_NOT_APPLICABLE", "CGST Act, Section 9(1) (Forward charge)"
+)
+
+
 def build_trace(
     rule: RuleRef,
     outcome: str,

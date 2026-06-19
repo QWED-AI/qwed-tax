@@ -161,7 +161,7 @@ class GSTGuard:
                 "liability": "RECIPIENT (RCM)" if is_rcm else "PROVIDER (FCM)",
                 "is_rcm": is_rcm,
                 "claimed_is_rcm": claimed_is_rcm,
-                "reason": reason if not verified else reason,
+                "reason": reason,
                 "error": None if verified else (
                     f"RCM mismatch: computed is_rcm={is_rcm}, claimed is_rcm={claimed_is_rcm}. {reason}"
                 ),
@@ -179,8 +179,9 @@ class GSTGuard:
 
         # Calculation mode (backward compatible) — computed, not verified against a claim
         return {
-            "verified": True,
+            "verified": False,
             "computed_only": True,
+            "error": "Computed RCM only. Provide claimed_is_rcm for deterministic verification.",
             "liability": "RECIPIENT (RCM)" if is_rcm else "PROVIDER (FCM)",
             "is_rcm": is_rcm,
             "reason": reason,
@@ -202,7 +203,7 @@ class GSTGuard:
             return value
         try:
             return enum_cls(value)
-        except ValueError:
+        except (TypeError, ValueError):
             return None
 
     @staticmethod

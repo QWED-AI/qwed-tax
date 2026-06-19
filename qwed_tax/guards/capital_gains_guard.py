@@ -16,21 +16,31 @@ class CapitalGainsGuard:
             d1 = datetime.strptime(purchase_date, "%Y-%m-%d")
             d2 = datetime.strptime(sale_date, "%Y-%m-%d")
             days = (d2 - d1).days
-        except ValueError:
-            raise ValueError(f"Invalid date format. Expected YYYY-MM-DD, got '{purchase_date}' and '{sale_date}'.")
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Invalid date format. Expected YYYY-MM-DD, got '{purchase_date}' and '{sale_date}'."
+            ) from exc
 
         # Deterministic Thresholds (India FY 2024-25)
         # Source: Income Tax Act
         thresholds = {
             "equity": 365,       # > 1 year
             "real_estate": 730,  # > 2 years
-            "debt_fund": 0,      # Debt Funds purchased after Apr 2023 are ALWAYS STCG (slab rate).
             "debt": 1095
         }
 
-        asset_key = asset_type.lower()
+        if not isinstance(asset_type, str) or not asset_type.strip():
+            raise ValueError(f"Unknown asset type '{asset_type}'. Known types: equity, real_estate, debt, debt_fund.")
+
+        asset_key = asset_type.strip().lower()
+
+        # Debt funds purchased after Apr 2023 are ALWAYS STCG (slab rate)
+        # regardless of holding period — special-case before threshold lookup
+        if asset_key == "debt_fund":
+            return "STCG"
+
         if asset_key not in thresholds:
-            raise ValueError(f"Unknown asset type '{asset_type}'. Known types: {', '.join(sorted(thresholds))}.")
+            raise ValueError(f"Unknown asset type '{asset_type}'. Known types: equity, real_estate, debt, debt_fund.")
 
         limit = thresholds[asset_key]
         return "LTCG" if days > limit else "STCG"

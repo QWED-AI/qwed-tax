@@ -67,10 +67,9 @@ class SpeculationGuard:
     @classmethod
     def _classify_source(cls, source: str) -> str:
         """Classify a trading source string. Returns 'speculative', 'non_speculative', or 'unknown'."""
-        for keyword in cls._KNOWN_SPECULATIVE:
-            if keyword in source:
-                return "speculative"
-        for keyword in cls._KNOWN_NON_SPECULATIVE:
-            if keyword in source:
-                return "non_speculative"
+        normalized = source.strip().lower().replace("-", "_").replace(" ", "_")
+        if normalized in cls._KNOWN_SPECULATIVE:
+            return "speculative"
+        if normalized in cls._KNOWN_NON_SPECULATIVE:
+            return "non_speculative"
         return "unknown"

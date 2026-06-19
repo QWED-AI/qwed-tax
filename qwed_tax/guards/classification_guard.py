@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 class WorkerType(Enum):
     EMPLOYEE = "W2"
@@ -11,7 +11,12 @@ class ClassificationGuard:
     Focuses on Behavioral and Financial Control.
     """
     
-    def verify_worker_status(self, behavioral_control: bool, financial_control: bool, relationship_permanence: bool) -> WorkerType:
+    def verify_worker_status(
+        self,
+        behavioral_control: bool,
+        financial_control: bool,
+        relationship_permanence: bool,
+    ) -> Optional[WorkerType]:
         """
         Deterministic IRS Common Law Test.
         If an entity controls HOW work is done (behavioral) and pays expenses (financial),
@@ -64,6 +69,13 @@ class ClassificationGuard:
                     "Ambiguous classification: facts contain mixed employee/contractor indicators. "
                     "Cannot deterministically classify — manual review required."
                 ),
+            }
+
+        # Type guard — non-string claims must fail closed
+        if not isinstance(llm_claim, str) or not llm_claim.strip():
+            return {
+                "verified": False,
+                "error": "Invalid worker classification claim. Expected a non-empty string.",
             }
 
         # Normalize claim

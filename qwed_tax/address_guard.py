@@ -24,7 +24,7 @@ class AddressGuard:
         }
         
         if state not in valid_prefixes:
-            return {"verified": True, "message": "State not in validation database yet (Assumed Valid)"}
+            return {"verified": False, "message": f"State {state.value} not in validation database. Address cannot be auto-verified — manual review required."}
             
         if zip_prefix in valid_prefixes[state]:
             return {"verified": True, "message": "✅ Zip code matches State."}

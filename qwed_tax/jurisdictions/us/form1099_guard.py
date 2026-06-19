@@ -26,7 +26,7 @@ class Form1099Guard:
         rule = _FILING_RULES.get(ptype)
         if rule is None:
             return {
-                "filing_required": None,
+                "filing_required": "UNVERIFIABLE",
                 "form": None,
                 "reason": f"No filing rule configured for payment type '{ptype}'. Cannot verify filing requirement — manual determination required.",
             }

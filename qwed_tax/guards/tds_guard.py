@@ -28,7 +28,6 @@ class TDSGuard:
         if not rule:
             return {
                 "verified": False,
-                "deduction": "0",
                 "error": f"No TDS rule configured for service type '{service_type}'. Cannot verify — block pending rule configuration.",
             }
 

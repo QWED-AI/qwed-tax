@@ -311,6 +311,19 @@ class TestForm1099Guard:
         assert res["filing_required"] is True
         assert res["form"] == "1099-MISC"
 
+    def test_healthcare_unmodeled_filing_required_is_unverifiable(self):
+        """HEALTHCARE is a valid enum value with no filing rule — must not default to False."""
+        payment = ContractorPayment(
+            contractor_id="C007",
+            payment_type=PaymentType.HEALTHCARE,
+            amount=Decimal("5000.00"),
+            calendar_year=2024,
+        )
+        res = self.guard.verify_filing_requirement(payment)
+        assert res["filing_required"] == "UNVERIFIABLE"
+        assert res["form"] is None
+        assert "manual determination required" in res["reason"]
+
 
 # ------------------------------------------------------------------
 # TaxPreFlight - fail-closed action orchestration

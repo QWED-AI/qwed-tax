@@ -52,7 +52,7 @@ class CapitalGainsGuard:
         expected = rates.get(key)
         
         if not expected:
-             return {"verified": True, "note": f"No hard constraint for {key}"}
+             return {"verified": False, "error": f"No statutory rate configured for {key}. Cannot verify claimed rate."}
 
         if expected == "SLAB":
             # If rate is variable (slab), we can't do simple string match. 

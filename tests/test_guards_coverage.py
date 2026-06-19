@@ -311,6 +311,19 @@ class TestForm1099Guard:
         assert res["filing_required"] is True
         assert res["form"] == "1099-MISC"
 
+    def test_healthcare_unmodeled_filing_required_is_unverifiable(self):
+        """HEALTHCARE is a valid enum value with no filing rule — must not default to False."""
+        payment = ContractorPayment(
+            contractor_id="C007",
+            payment_type=PaymentType.HEALTHCARE,
+            amount=Decimal("5000.00"),
+            calendar_year=2024,
+        )
+        res = self.guard.verify_filing_requirement(payment)
+        assert res["filing_required"] == "UNVERIFIABLE"
+        assert res["form"] is None
+        assert "manual determination required" in res["reason"]
+
 
 # ------------------------------------------------------------------
 # TaxPreFlight - fail-closed action orchestration
@@ -618,3 +631,67 @@ class TestTaxPreFlightAudit:
         assert report["allowed"] is False
         assert report["checks_run"] == ["worker_classification"]
         assert "Misclassification Risk" in report["blocks"][0]
+
+
+# ------------------------------------------------------------------
+# Issue #16: Fail-closed on unknown/unmodeled tax rules
+# ------------------------------------------------------------------
+
+
+class TestIssue16FailClosedUnknownRules:
+    """Each guard must fail closed when it encounters an unknown rule, category, state, or type."""
+
+    def test_tds_unknown_service_type_blocks(self):
+        """TDSGuard must not return verified=True for unmapped service types."""
+        guard = TDSGuard()
+        res = guard.calculate_deduction("UNKNOWN_SERVICE", 50000, 0)
+        assert res["verified"] is False
+        assert "No TDS rule configured" in res["error"]
+        assert "deduction" not in res
+
+    def test_capital_gains_unknown_asset_type_blocks(self):
+        """CapitalGainsGuard must not return verified=True for unmapped asset/term combos."""
+        from qwed_tax.guards.capital_gains_guard import CapitalGainsGuard
+        guard = CapitalGainsGuard()
+        res = guard.verify_tax_rate("gold", "LTCG", "10%")
+        assert res["verified"] is False
+        assert "No statutory rate configured" in res["error"]
+
+    def test_capital_gains_known_rate_still_passes(self):
+        """Known asset/term must still verify correctly — no regression."""
+        from qwed_tax.guards.capital_gains_guard import CapitalGainsGuard
+        guard = CapitalGainsGuard()
+        res = guard.verify_tax_rate("equity", "LTCG", "12.5%")
+        assert res["verified"] is True
+
+    def test_nexus_unknown_state_blocks(self):
+        """NexusGuard must not return verified=True for unlisted states."""
+        guard = NexusGuard()
+        res = guard.check_nexus_liability("WA", 900000, 500, "no_tax")
+        assert res["verified"] is False
+        assert "not in configured nexus threshold table" in res["error"]
+
+    def test_nexus_known_state_still_passes(self):
+        """Known state with no nexus violation must still pass — no regression."""
+        guard = NexusGuard()
+        res = guard.check_nexus_liability("CA", 100, 0, "no_tax")
+        assert res["verified"] is True
+
+    def test_address_unknown_state_blocks(self):
+        """AddressGuard must not return verified=True for unlisted states."""
+        from qwed_tax.address_guard import AddressGuard
+        from qwed_tax.models import Address, State
+        guard = AddressGuard()
+        addr = Address(street="123 Main St", city="Baltimore", state=State.MD, zip_code="21201")
+        res = guard.verify_address(addr)
+        assert res["verified"] is False
+        assert "manual review required" in res["message"]
+
+    def test_address_known_state_still_passes(self):
+        """Known state with matching zip prefix must still pass — no regression."""
+        from qwed_tax.address_guard import AddressGuard
+        from qwed_tax.models import Address, State
+        guard = AddressGuard()
+        addr = Address(street="123 Main St", city="New York", state=State.NY, zip_code="10001")
+        res = guard.verify_address(addr)
+        assert res["verified"] is True

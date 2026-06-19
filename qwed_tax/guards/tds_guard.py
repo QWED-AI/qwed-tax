@@ -26,7 +26,10 @@ class TDSGuard:
         """
         rule = self.tds_rules.get(service_type.upper().replace(" ", "_"))
         if not rule:
-            return {"verified": True, "deduction": "0", "note": "No TDS rule found for category"}
+            return {
+                "verified": False,
+                "error": f"No TDS rule configured for service type '{service_type}'. Cannot verify — block pending rule configuration.",
+            }
 
         try:
             inv_amt = parse_decimal_input(invoice_amount, "invoice_amount")

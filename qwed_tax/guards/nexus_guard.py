@@ -28,7 +28,10 @@ class NexusGuard:
         """
         state_code = state.upper()
         if state_code not in self.state_thresholds:
-            return {"verified": True, "note": f"State {state_code} not in automated high-risk list"}
+            return {
+                "verified": False,
+                "error": f"State {state_code} not in configured nexus threshold table. Cannot verify nexus liability — block pending rule configuration.",
+            }
 
         try:
             parsed_sales = parse_decimal_input(ytd_sales, "ytd_sales")

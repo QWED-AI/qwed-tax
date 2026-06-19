@@ -103,10 +103,11 @@ class InputCreditGuard:
             "verified": True,
             "eligible_itc": decimal_text(parsed_tax_paid),
             "note": "Expense appears eligible for Input Tax Credit.",
+            "unverified_category": True,
             "audit_trace": build_trace(
                 ITC_ELIGIBLE,
                 "ALLOWED",
-                {"expense_category": normalized_cat},
+                {"expense_category": normalized_cat, "category_match": "default_allow"},
             ),
         }
 

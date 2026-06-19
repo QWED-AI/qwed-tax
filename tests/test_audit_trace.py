@@ -103,7 +103,7 @@ class TestTDSAuditTrace:
         assert res["audit_trace"]["rule_id"] == "TDS_194C"
 
     def test_unknown_category_has_no_trace(self):
-        # No statutory rule applies, so no trace is emitted (legacy behavior).
+        # Unknown service type must fail closed (Issue #16) — no longer returns verified=True.
         res = self.guard.calculate_deduction("UNKNOWN_SERVICE", 50000, 0)
+        assert res["verified"] is False
         assert "audit_trace" not in res
-        assert res["verified"] is True

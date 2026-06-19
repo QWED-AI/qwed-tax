@@ -142,7 +142,9 @@ class TestRCMApplicability:
         assert res["is_rcm"] is True
         assert res["audit_trace"]["inputs"]["service"] == "GTA"
 
-    def test_unknown_string_service_is_forward_charge(self):
+    def test_unknown_string_service_fail_closed(self):
+        """Unknown service type must fail closed (Issue #17) — no silent coercion to OTHER."""
         res = self.guard.verify_rcm_applicability("MYSTERY", "INDIVIDUAL", "BODY_CORPORATE")
-        assert res["is_rcm"] is False
-        assert res["audit_trace"]["rule_id"] == "RCM_NOT_APPLICABLE"
+        assert res["verified"] is False
+        assert "Unknown service type" in res["error"]
+        assert res["is_rcm"] is None

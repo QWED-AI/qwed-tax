@@ -1,6 +1,6 @@
 from decimal import Decimal
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict
 from pydantic import BaseModel
 
 class AssetClass(str, Enum):
@@ -28,18 +28,6 @@ class CryptoTaxGuard:
         
         # Rule 1: Check for VDA Losses being used
         if "VDA" in losses and losses["VDA"] < 0:
-            # We must verify that VDA loss is NOT reducing taxable income from other heads
-            
-            # Simple simulation: 
-            # If Net Taxable Income < (Total Gains - Non-VDA Losses)
-            # It implies VDA loss was used.
-            
-            total_gains = sum(gains.values(), Decimal(0))
-            non_vda_losses = sum((v for k, v in losses.items() if k != "VDA"), Decimal(0))
-            
-            # This guard is meant to be called on a specific TRANSACTION attempt
-            # But here we verify the logic rule itself.
-            
             return TaxResult(
                 verified=False,
                 message="⚠️ Section 115BBH Alert: Loss from VDA (Crypto/NFT) cannot be set off against any other income. It must lapse.",
@@ -57,22 +45,35 @@ class CryptoTaxGuard:
         Verifies strict 30% tax on positive VDA income (plus cess usually, simplified here).
         """
         EXPECTED_RATE = Decimal("0.30")
-        
-        if vda_income <= 0:
-            return TaxResult(verified=True, message="No VDA Income", allowed_set_off=Decimal(0))
-            
+
+        if vda_income == 0:
+            if claimed_tax == 0:
+                return TaxResult(verified=True, message="No VDA Income — zero tax confirmed.", allowed_set_off=Decimal(0))
+            return TaxResult(
+                verified=False,
+                message=f"VDA income is zero but claimed tax is {claimed_tax}. Expected 0.",
+                allowed_set_off=Decimal(0),
+            )
+
+        if vda_income < 0:
+            return TaxResult(
+                verified=False,
+                message=f"VDA income is negative ({vda_income}) — this is a loss, not income. Use verify_set_off for loss treatment.",
+                allowed_set_off=Decimal(0),
+            )
+
         expected_tax = vda_income * EXPECTED_RATE
-        
+
         # Allow small float tolerance if input wasn't decimal, but strict for now
         if abs(claimed_tax - expected_tax) < Decimal("0.1"):
              return TaxResult(
-                verified=True, 
+                verified=True,
                 message=f"✅ VDA Tax correct (30% of {vda_income})",
                 allowed_set_off=Decimal(0)
             )
         else:
              return TaxResult(
-                verified=False, 
+                verified=False,
                 message=f"❌ Section 115BBH Violation: VDA Income taxed at 30% flat. Expected {expected_tax}, Claimed {claimed_tax}",
                 allowed_set_off=Decimal(0)
             )

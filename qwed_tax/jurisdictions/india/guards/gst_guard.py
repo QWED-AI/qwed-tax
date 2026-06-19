@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Callable, Dict, NamedTuple
+from typing import Any, Callable, Dict, NamedTuple, Optional
 from decimal import Decimal
 
 from qwed_tax.audit import (
@@ -99,17 +99,49 @@ class GSTGuard:
     }
 
     def verify_rcm_applicability(
-        self, service: ServiceType, provider: EntityType, recipient: EntityType
+        self,
+        service: ServiceType,
+        provider: EntityType,
+        recipient: EntityType,
+        claimed_is_rcm: Optional[bool] = None,
     ) -> dict:
         """
         Determine who is liable to pay tax (forward charge vs reverse charge).
 
         Accepts either enum members or their raw string values (e.g. "GTA",
         "BODY_CORPORATE"), so JSON-sourced payloads work without pre-conversion.
+
+        When claimed_is_rcm is provided, the function compares the computed RCM
+        liability against the claim and returns verified=True only on exact match
+        (verification mode). When omitted, returns a computed result with
+        computed_only=True (calculation mode — backward compatible).
         """
-        service = self._coerce(ServiceType, service, ServiceType.OTHER)
-        provider = self._coerce(EntityType, provider, EntityType.INDIVIDUAL)
-        recipient = self._coerce(EntityType, recipient, EntityType.INDIVIDUAL)
+        # Fail-closed on unknown service/entity — no silent coercion to defaults
+        service_coerced = self._try_coerce(ServiceType, service)
+        if service_coerced is None:
+            return {
+                "verified": False,
+                "error": f"Unknown service type '{service}'. Cannot determine RCM applicability.",
+                "is_rcm": None,
+            }
+        provider_coerced = self._try_coerce(EntityType, provider)
+        if provider_coerced is None:
+            return {
+                "verified": False,
+                "error": f"Unknown provider entity type '{provider}'. Cannot determine RCM applicability.",
+                "is_rcm": None,
+            }
+        recipient_coerced = self._try_coerce(EntityType, recipient)
+        if recipient_coerced is None:
+            return {
+                "verified": False,
+                "error": f"Unknown recipient entity type '{recipient}'. Cannot determine RCM applicability.",
+                "is_rcm": None,
+            }
+
+        service = service_coerced
+        provider = provider_coerced
+        recipient = recipient_coerced
 
         rule = self._RCM_RULES.get(service)
         is_rcm = bool(rule and rule.applies(provider, recipient))
@@ -121,8 +153,34 @@ class GSTGuard:
             reason = "Forward Charge (Provider pays)"
             rule_ref = RCM_NOT_APPLICABLE
 
+        # Verification mode: compare computed RCM against claimed RCM
+        if claimed_is_rcm is not None:
+            verified = (claimed_is_rcm == is_rcm)
+            return {
+                "verified": verified,
+                "liability": "RECIPIENT (RCM)" if is_rcm else "PROVIDER (FCM)",
+                "is_rcm": is_rcm,
+                "claimed_is_rcm": claimed_is_rcm,
+                "reason": reason if not verified else reason,
+                "error": None if verified else (
+                    f"RCM mismatch: computed is_rcm={is_rcm}, claimed is_rcm={claimed_is_rcm}. {reason}"
+                ),
+                "audit_trace": build_trace(
+                    rule_ref,
+                    "REVERSE_CHARGE" if is_rcm else "FORWARD_CHARGE",
+                    {
+                        "service": service.value,
+                        "provider": provider.value,
+                        "recipient": recipient.value,
+                        "claimed_is_rcm": claimed_is_rcm,
+                    },
+                ),
+            }
+
+        # Calculation mode (backward compatible) — computed, not verified against a claim
         return {
             "verified": True,
+            "computed_only": True,
             "liability": "RECIPIENT (RCM)" if is_rcm else "PROVIDER (FCM)",
             "is_rcm": is_rcm,
             "reason": reason,
@@ -138,8 +196,18 @@ class GSTGuard:
         }
 
     @staticmethod
+    def _try_coerce(enum_cls, value):
+        """Return an enum member or None if the value doesn't match any member."""
+        if isinstance(value, enum_cls):
+            return value
+        try:
+            return enum_cls(value)
+        except ValueError:
+            return None
+
+    @staticmethod
     def _coerce(enum_cls, value, default):
-        """Return an enum member for either an enum or its raw string value."""
+        """Return an enum member for either an enum or its raw string value. (Legacy)"""
         if isinstance(value, enum_cls):
             return value
         try:

@@ -10,27 +10,29 @@ class CapitalGainsGuard:
     def determine_term(self, purchase_date: str, sale_date: str, asset_type: str) -> str:
         """
         Calculates Holding Period in days and returns 'LTCG' or 'STCG'.
+        Raises ValueError on unparseable dates or unknown asset types.
         """
         try:
             d1 = datetime.strptime(purchase_date, "%Y-%m-%d")
             d2 = datetime.strptime(sale_date, "%Y-%m-%d")
             days = (d2 - d1).days
         except ValueError:
-            return "ERROR_DATE_FORMAT"
-        
+            raise ValueError(f"Invalid date format. Expected YYYY-MM-DD, got '{purchase_date}' and '{sale_date}'.")
+
         # Deterministic Thresholds (India FY 2024-25)
         # Source: Income Tax Act
         thresholds = {
             "equity": 365,       # > 1 year
             "real_estate": 730,  # > 2 years
-            "debt_fund": 0,      # Wait, Debt Funds purchased after Apr 2023 are ALWAYS STCG (slab rate).
-            # But legacy debt funds might be 3 years (1095).
-            # We will use simplified logic for now: if holding > 3 years, likely LTCG treatment was intended?
-            # Actually, let's stick to standard thresholds for classification BEFORE tax rate application.
+            "debt_fund": 0,      # Debt Funds purchased after Apr 2023 are ALWAYS STCG (slab rate).
             "debt": 1095
         }
-        
-        limit = thresholds.get(asset_type.lower(), 1095) # Default to 3 years
+
+        asset_key = asset_type.lower()
+        if asset_key not in thresholds:
+            raise ValueError(f"Unknown asset type '{asset_type}'. Known types: {', '.join(sorted(thresholds))}.")
+
+        limit = thresholds[asset_key]
         return "LTCG" if days > limit else "STCG"
 
     def verify_tax_rate(self, asset_type: str, term: str, claimed_rate: str) -> Dict[str, Any]:
@@ -55,9 +57,13 @@ class CapitalGainsGuard:
              return {"verified": False, "error": f"No statutory rate configured for {key}. Cannot verify claimed rate."}
 
         if expected == "SLAB":
-            # If rate is variable (slab), we can't do simple string match. 
-            # We accept it if LLM didn't claim a fixed low rate like '10%'
-            return {"verified": True, "note": "Subject to Slab Rates"}
+            return {
+                "verified": False,
+                "error": (
+                    f"Rate for {key} is subject to slab rates — cannot deterministically "
+                    f"verify claimed rate of {claimed_rate}. Taxpayer's slab band is required for verification."
+                ),
+            }
             
         if claimed_clean != expected:
             return {

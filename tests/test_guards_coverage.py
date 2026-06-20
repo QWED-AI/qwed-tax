@@ -835,6 +835,17 @@ class TestIssue18CryptoZeroNegative:
         assert res.verified is False
         assert "loss" in res.message.lower()
 
+    def test_set_off_with_gains_fail_closed(self):
+        from qwed_tax.jurisdictions.india.guards.crypto_guard import CryptoTaxGuard
+        from decimal import Decimal
+        guard = CryptoTaxGuard()
+        res = guard.verify_set_off(
+            losses={"VDA": Decimal("-5000")},
+            gains={"BUSINESS": Decimal("10000")},
+        )
+        assert res.verified is False
+        assert "not implemented" in res.message.lower()
+
 
 class TestIssue17SetoffAllowlist:
     """SetoffGuard allowlist — unknown heads blocked."""

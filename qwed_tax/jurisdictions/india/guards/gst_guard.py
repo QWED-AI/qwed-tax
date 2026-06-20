@@ -155,7 +155,16 @@ class GSTGuard:
 
         # Verification mode: compare computed RCM against claimed RCM
         if claimed_is_rcm is not None:
-            verified = (claimed_is_rcm == is_rcm)
+            if not isinstance(claimed_is_rcm, bool):
+                return {
+                    "verified": False,
+                    "error": (
+                        "Invalid claimed_is_rcm. Expected a boolean true/false "
+                        "for deterministic verification."
+                    ),
+                    "is_rcm": is_rcm,
+                }
+            verified = (claimed_is_rcm is is_rcm)
             return {
                 "verified": verified,
                 "liability": "RECIPIENT (RCM)" if is_rcm else "PROVIDER (FCM)",

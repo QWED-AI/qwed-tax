@@ -26,7 +26,15 @@ class CryptoTaxGuard:
         gains: Optional Dict like {"BUSINESS": 10000} — reserved for future
                inter-head adjustment verification.
         """
-        
+
+        # Fail closed: gain-side verification is not implemented yet.
+        if gains:
+            return TaxResult(
+                verified=False,
+                message="Gain-side set-off verification is not implemented in CryptoTaxGuard. Provide losses-only payload or route to inter-head set-off guard.",
+                allowed_set_off=Decimal(0),
+            )
+
         # Rule 1: Check for VDA Losses being used
         if "VDA" in losses and losses["VDA"] < 0:
             return TaxResult(

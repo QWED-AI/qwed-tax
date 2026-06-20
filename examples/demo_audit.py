@@ -18,7 +18,7 @@ def run_audit_checks():
     losses = {"VDA": Decimal("-20000")}
     gains = {"BUSINESS": Decimal("50000")}
     
-    res_crypto = cg.verify_set_off(losses, gains)
+    res_crypto = cg.verify_set_off(losses)
     print(f"Result: {res_crypto.message}")
     print(f"Verified? {res_crypto.verified}")
 

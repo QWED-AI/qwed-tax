@@ -365,7 +365,7 @@ class TaxVerifier:
 
     def verify_india_crypto(self, losses, gains):
         if self.jurisdiction != "INDIA": raise ValueError("Switch to INDIA jurisdiction")
-        return self.crypto.verify_set_off(losses, gains)
+        return self.crypto.verify_set_off(losses)
 
     def verify_india_deposit(self, **kwargs):
         if self.jurisdiction != "INDIA": raise ValueError("Switch to INDIA jurisdiction")

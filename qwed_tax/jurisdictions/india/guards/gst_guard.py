@@ -155,38 +155,61 @@ class GSTGuard:
 
         # Verification mode: compare computed RCM against claimed RCM
         if claimed_is_rcm is not None:
-            if not isinstance(claimed_is_rcm, bool):
-                return {
-                    "verified": False,
-                    "error": (
-                        "Invalid claimed_is_rcm. Expected a boolean true/false "
-                        "for deterministic verification."
-                    ),
-                    "is_rcm": is_rcm,
-                }
-            verified = (claimed_is_rcm is is_rcm)
-            return {
-                "verified": verified,
-                "liability": "RECIPIENT (RCM)" if is_rcm else "PROVIDER (FCM)",
-                "is_rcm": is_rcm,
-                "claimed_is_rcm": claimed_is_rcm,
-                "reason": reason,
-                "error": None if verified else (
-                    f"RCM mismatch: computed is_rcm={is_rcm}, claimed is_rcm={claimed_is_rcm}. {reason}"
-                ),
-                "audit_trace": build_trace(
-                    rule_ref,
-                    "REVERSE_CHARGE" if is_rcm else "FORWARD_CHARGE",
-                    {
-                        "service": service.value,
-                        "provider": provider.value,
-                        "recipient": recipient.value,
-                        "claimed_is_rcm": claimed_is_rcm,
-                    },
-                ),
-            }
+            return self._build_verification_response(is_rcm, claimed_is_rcm, reason, rule_ref, service, provider, recipient)
 
         # Calculation mode (backward compatible) — computed, not verified against a claim
+        return self._build_calculation_response(is_rcm, reason, rule_ref, service, provider, recipient)
+
+    def _build_verification_response(
+        self,
+        is_rcm: bool,
+        claimed_is_rcm: bool,
+        reason: str,
+        rule_ref: RuleRef,
+        service: ServiceType,
+        provider: EntityType,
+        recipient: EntityType,
+    ) -> dict:
+        if not isinstance(claimed_is_rcm, bool):
+            return {
+                "verified": False,
+                "error": (
+                    "Invalid claimed_is_rcm. Expected a boolean true/false "
+                    "for deterministic verification."
+                ),
+                "is_rcm": is_rcm,
+            }
+        verified = (claimed_is_rcm is is_rcm)
+        return {
+            "verified": verified,
+            "liability": "RECIPIENT (RCM)" if is_rcm else "PROVIDER (FCM)",
+            "is_rcm": is_rcm,
+            "claimed_is_rcm": claimed_is_rcm,
+            "reason": reason,
+            "error": None if verified else (
+                f"RCM mismatch: computed is_rcm={is_rcm}, claimed is_rcm={claimed_is_rcm}. {reason}"
+            ),
+            "audit_trace": build_trace(
+                rule_ref,
+                "REVERSE_CHARGE" if is_rcm else "FORWARD_CHARGE",
+                {
+                    "service": service.value,
+                    "provider": provider.value,
+                    "recipient": recipient.value,
+                    "claimed_is_rcm": claimed_is_rcm,
+                },
+            ),
+        }
+
+    def _build_calculation_response(
+        self,
+        is_rcm: bool,
+        reason: str,
+        rule_ref: RuleRef,
+        service: ServiceType,
+        provider: EntityType,
+        recipient: EntityType,
+    ) -> dict:
         return {
             "verified": False,
             "computed_only": True,

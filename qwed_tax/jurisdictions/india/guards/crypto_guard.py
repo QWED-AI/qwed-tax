@@ -1,6 +1,6 @@
 from decimal import Decimal
 from enum import Enum
-from typing import Dict
+from typing import Dict, Optional
 from pydantic import BaseModel
 
 class AssetClass(str, Enum):
@@ -19,11 +19,12 @@ class CryptoTaxGuard:
     Key Rule: Loss from transfer of VDA cannot be set off against any other income.
     """
     
-    def verify_set_off(self, losses: Dict[str, Decimal], gains: Dict[str, Decimal]) -> TaxResult:
+    def verify_set_off(self, losses: Dict[str, Decimal], gains: Optional[Dict[str, Decimal]] = None) -> TaxResult:
         """
         Verifies if the proposed set-off of losses is legal.
         losses: Dict like {"VDA": -5000, "EQUITY": -200}
-        gains: Dict like {"BUSINESS": 10000}
+        gains: Optional Dict like {"BUSINESS": 10000} — reserved for future
+               inter-head adjustment verification.
         """
         
         # Rule 1: Check for VDA Losses being used

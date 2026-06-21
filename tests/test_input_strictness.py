@@ -12,9 +12,7 @@ from qwed_tax.models import (
     Address,
     ContractorPayment,
     DeductionEntry,
-    DeductionType,
     PayrollEntry,
-    State,
     TaxEntry,
     VerificationResult,
     WorkArrangement,
@@ -63,6 +61,11 @@ class TestIssue21ValuationEdgeCases:
     def test_negative_discount_blocked(self):
         res = self.guard.verify_conversion("100000", "100", "-0.5", "100")
         assert res["verified"] is False
+
+    def test_discount_of_one_blocked(self):
+        res = self.guard.verify_conversion("100000", "100", "1", "100")
+        assert res["verified"] is False
+        assert "Discount must be between 0 and 1" in res["error"]
 
     def test_zero_cap_blocked(self):
         res = self.guard.verify_conversion("100000", "0", "0.2", "100")

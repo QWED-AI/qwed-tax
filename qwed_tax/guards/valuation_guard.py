@@ -20,7 +20,7 @@ class ValuationGuard:
         except InvalidOperation:
              return {"verified": False, "error": "Invalid numerical input for valuation."}
 
-        if not (Decimal("0") <= d_disc <= Decimal("1")):
+        if not (Decimal("0") <= d_disc < Decimal("1")):
             return {"verified": False, "error": "Discount must be between 0 and 1."}
         if d_cap <= 0 or d_next <= 0 or d_inv <= 0:
             return {"verified": False, "error": "Cap, next round price, and investment must be positive."}

@@ -185,10 +185,18 @@ class TaxDiagnosticResult:
     proof_ref: Optional[str] = None
 
     def __post_init__(self) -> None:
-        if not self.agent_message or not self.agent_message.strip():
+        if not isinstance(self.status, TaxDiagnosticStatus):
+            valid = ", ".join(s.value for s in TaxDiagnosticStatus)
+            raise ValueError(f"status must be a TaxDiagnosticStatus ({valid})")
+
+        if not isinstance(self.agent_message, str) or not self.agent_message.strip():
             raise ValueError(
-                "agent_message must be non-empty — Layer 1 diagnostics are mandatory"
+                "agent_message must be a non-empty string — "
+                "Layer 1 diagnostics are mandatory"
             )
+
+        if not isinstance(self.developer_fields, dict):
+            raise ValueError("developer_fields must be a dict")
 
         if self.status is TaxDiagnosticStatus.VERIFIED and not self.proof_ref:
             raise ValueError(
@@ -275,18 +283,28 @@ class TaxDiagnosticResult:
                     f"from_dict: invalid status {status!r} — "
                     f"must be one of: {valid}."
                 ) from None
+        elif not isinstance(status, TaxDiagnosticStatus):
+            valid = ", ".join(s.value for s in TaxDiagnosticStatus)
+            raise ValueError(
+                f"from_dict: invalid status type {type(status).__name__} — "
+                f"must be one of: {valid}."
+            )
 
         agent_message = data.get("agent_message")
-        if not agent_message or not str(agent_message).strip():
+        if not isinstance(agent_message, str) or not agent_message.strip():
             raise ValueError(
                 "from_dict: 'agent_message' is missing or empty — "
                 "Layer 1 diagnostics are mandatory."
             )
 
+        developer_fields = data.get("developer_fields", {})
+        if not isinstance(developer_fields, dict):
+            raise ValueError("from_dict: 'developer_fields' must be a dict.")
+
         return cls(
             status=status,
             agent_message=agent_message,
-            developer_fields=data.get("developer_fields", {}),
+            developer_fields=developer_fields,
             proof_ref=data.get("proof_ref"),
         )
 

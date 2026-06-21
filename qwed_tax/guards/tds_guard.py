@@ -1,8 +1,8 @@
 from decimal import Decimal
 from typing import Any, Dict
 
-from qwed_tax.audit import TDS_194C, TDS_194H, TDS_194I, TDS_194J, build_trace, trace_proof_ref
-from qwed_tax.diagnostics import TaxDiagnosticResult, TaxDiagnosticStatus
+from qwed_tax.audit import TDS_194C, TDS_194H, TDS_194I, TDS_194J, build_trace
+from qwed_tax.diagnostics import TaxDiagnosticResult
 from qwed_tax.numeric import decimal_text, parse_decimal_input
 
 class TDSGuard:
@@ -104,15 +104,21 @@ class TDSGuard:
                 },
             )
 
+        if audit_trace is None:
+            raise ValueError(
+                "VERIFIED result requires audit_trace — "
+                "use UNVERIFIABLE if no evidence was established."
+            )
+
         return TaxDiagnosticResult.verified(
             agent_message="Tax deduction verified.",
             developer_fields={
-                "constraint_id": audit_trace["rule_id"] if audit_trace else "TDS_VERIFIED",
-                "statute": audit_trace["statute"] if audit_trace else None,
-                "jurisdiction": audit_trace["jurisdiction"] if audit_trace else None,
+                "constraint_id": audit_trace["rule_id"],
+                "statute": audit_trace.get("statute"),
+                "jurisdiction": audit_trace.get("jurisdiction"),
                 "audit_trace": audit_trace,
                 "deduction": result.get("deduction"),
                 "net_payable": result.get("net_payable"),
             },
-            evidence=audit_trace or {},
+            evidence=audit_trace,
         )

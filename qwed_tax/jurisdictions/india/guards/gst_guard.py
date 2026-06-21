@@ -257,17 +257,23 @@ class GSTGuard:
                 },
             )
 
+        if audit_trace is None:
+            raise ValueError(
+                "VERIFIED result requires audit_trace — "
+                "use UNVERIFIABLE if no evidence was established."
+            )
+
         return TaxDiagnosticResult.verified(
             agent_message="RCM applicability verified.",
             developer_fields={
-                "constraint_id": audit_trace["rule_id"] if audit_trace else "RCM_VERIFIED",
-                "statute": audit_trace["statute"] if audit_trace else None,
-                "jurisdiction": audit_trace["jurisdiction"] if audit_trace else None,
+                "constraint_id": audit_trace["rule_id"],
+                "statute": audit_trace.get("statute"),
+                "jurisdiction": audit_trace.get("jurisdiction"),
                 "audit_trace": audit_trace,
                 "is_rcm": result.get("is_rcm"),
                 "liability": result.get("liability"),
             },
-            evidence=audit_trace or {},
+            evidence=audit_trace,
         )
 
     @staticmethod

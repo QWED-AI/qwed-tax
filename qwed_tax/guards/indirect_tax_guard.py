@@ -171,14 +171,20 @@ class InputCreditGuard:
                 },
             )
 
+        if audit_trace is None:
+            raise ValueError(
+                "VERIFIED result requires audit_trace — "
+                "use UNVERIFIABLE if no evidence was established."
+            )
+
         return TaxDiagnosticResult.verified(
             agent_message="Input tax credit eligibility verified.",
             developer_fields={
-                "constraint_id": audit_trace["rule_id"] if audit_trace else "ITC_VERIFIED",
-                "statute": audit_trace["statute"] if audit_trace else None,
-                "jurisdiction": audit_trace["jurisdiction"] if audit_trace else None,
+                "constraint_id": audit_trace["rule_id"],
+                "statute": audit_trace.get("statute"),
+                "jurisdiction": audit_trace.get("jurisdiction"),
                 "audit_trace": audit_trace,
                 "eligible_itc": result.get("eligible_itc"),
             },
-            evidence=audit_trace or {},
+            evidence=audit_trace,
         )

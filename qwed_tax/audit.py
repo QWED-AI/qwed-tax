@@ -110,6 +110,11 @@ def trace_proof_ref(trace: Dict[str, Any]) -> str:
     Returns:
         sha256-prefixed hex digest string, e.g. "sha256:abcdef...".
     """
-    payload = json.dumps(trace, sort_keys=True)
+    try:
+        payload = json.dumps(trace, sort_keys=True)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"Audit trace must be JSON-serializable for proof_ref hashing: {exc}"
+        ) from exc
     digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
     return f"sha256:{digest}"

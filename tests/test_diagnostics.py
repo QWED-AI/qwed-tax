@@ -1,5 +1,7 @@
 """Tests for TaxDiagnosticResult 3-layer model (#39)."""
 
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 from qwed_tax.audit import TDS_194J, build_trace, trace_proof_ref
@@ -49,7 +51,7 @@ class TestTaxDiagnosticResultModel:
             )
 
     def test_empty_agent_message_rejected(self):
-        with pytest.raises(ValueError, match="agent_message must be non-empty"):
+        with pytest.raises(ValueError, match="agent_message must be a non-empty string"):
             TaxDiagnosticResult(
                 status=TaxDiagnosticStatus.BLOCKED,
                 agent_message="",
@@ -57,7 +59,7 @@ class TestTaxDiagnosticResultModel:
 
     def test_frozen_dataclass(self):
         result = TaxDiagnosticResult.blocked("blocked")
-        with pytest.raises(Exception):
+        with pytest.raises(FrozenInstanceError):
             result.agent_message = "mutated"
 
     def test_verified_factory_produces_proof_ref(self):

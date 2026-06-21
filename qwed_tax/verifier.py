@@ -183,10 +183,6 @@ class TaxPreFlight:
             )
             return report
 
-        report["checks_not_run"] = self._compute_checks_not_run(
-            canonical_action, [c["name"] for c in selected_checks]
-        )
-
         for check in selected_checks:
             missing_fields = self._missing_fields(intent, check["required"])
             if missing_fields:
@@ -195,12 +191,18 @@ class TaxPreFlight:
                     f"Action '{canonical_action}' is missing required fields for "
                     f"{check['name']}: {', '.join(missing_fields)}."
                 )
+                report["checks_not_run"] = self._compute_checks_not_run(
+                    canonical_action, report["checks_run"]
+                )
                 return report
 
         for check in selected_checks:
             report["checks_run"].append(check["name"])
             getattr(self, check["handler"])(intent, report)
 
+        report["checks_not_run"] = self._compute_checks_not_run(
+            canonical_action, report["checks_run"]
+        )
         return report
 
     # ---- extracted checks (each keeps complexity flat) ----
@@ -243,7 +245,7 @@ class TaxPreFlight:
         all_names = [c["name"] for c in self._ACTION_CHECKS[action]]
         not_run = [name for name in all_names if name not in run_names]
         not_run.extend(self._KNOWN_GAPS.get(action, []))
-        return not_run
+        return list(dict.fromkeys(not_run))
 
     def _missing_fields(self, payload: Dict[str, Any], fields: tuple[str, ...]) -> list[str]:
         return [field for field in fields if not self._has_field(payload, field)]

@@ -74,3 +74,12 @@ class TestReciprocityGuard:
         )
         res = self.guard.determine_withholding_state(arrangement)
         assert res["verified"] is False
+
+    def test_same_state_claim_mismatch_fail_closed(self):
+        res = self.guard.verify_reciprocity("NY", "NJ", same_state=True)
+        assert res["verified"] is False
+        assert "conflicts" in res["message"]
+
+    def test_same_state_claim_consistent_passes(self):
+        res = self.guard.verify_reciprocity("NY", "NY", same_state=True)
+        assert res["verified"] is True

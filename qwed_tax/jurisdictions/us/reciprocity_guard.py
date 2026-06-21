@@ -1,3 +1,5 @@
+from typing import Optional
+
 from ...models import WorkArrangement, State
 
 class ReciprocityGuard:
@@ -29,7 +31,7 @@ class ReciprocityGuard:
         self,
         residence_state: str,
         work_state: str,
-        same_state: bool = False,
+        same_state: Optional[bool] = None,
     ) -> dict:
         """
         Verifies whether a state tax reciprocity agreement exists between
@@ -42,6 +44,7 @@ class ReciprocityGuard:
         Returns verified=False when:
         - The states are different and no reciprocity agreement exists
         - Either state is not recognized
+        - same_state claim conflicts with actual state values
         """
         residence = self._coerce_state(residence_state)
         if residence is None:
@@ -55,6 +58,15 @@ class ReciprocityGuard:
             return {
                 "verified": False,
                 "message": f"Unknown work state '{work_state}'. Cannot verify reciprocity.",
+            }
+
+        if same_state is not None and same_state != (residence == work):
+            return {
+                "verified": False,
+                "message": (
+                    "same_state claim conflicts with residence/work states. "
+                    "Cannot verify reciprocity."
+                ),
             }
 
         return self._evaluate_reciprocity(residence, work)

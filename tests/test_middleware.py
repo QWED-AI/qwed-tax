@@ -1,16 +1,7 @@
 """Tests for middleware partial-verification fix (#19) and TaxPreFlight checks_not_run."""
 
-from decimal import Decimal
-
 from qwed_tax.middleware.gusto_interceptor import QWEDTaxMiddleware
 from qwed_tax.verifier import TaxPreFlight
-from qwed_tax.models import (
-    Currency,
-    DeductionEntry,
-    DeductionType,
-    PayrollEntry,
-    TaxEntry,
-)
 
 
 class TestMiddlewareArithmeticOnly:
@@ -125,3 +116,14 @@ class TestTaxPreFlightChecksNotRun:
         report = self.pf.audit_transaction({"action": "unknown_action"})
         assert "checks_not_run" in report
         assert report["checks_not_run"] == []
+
+    def test_selected_but_missing_fields_lists_in_checks_not_run(self):
+        intent = {
+            "action": "trade_tax",
+            "asset_type": "equity",
+            "dates": {"buy": "2023-01-01"},
+            "claimed_rate": "12.5",
+        }
+        report = self.pf.audit_transaction(intent)
+        assert report["allowed"] is False
+        assert "capital_gains" in report["checks_not_run"]

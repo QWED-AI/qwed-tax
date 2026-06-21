@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from enum import Enum
 from typing import Dict, Optional
 from pydantic import BaseModel
@@ -71,10 +71,10 @@ class CryptoTaxGuard:
                 allowed_set_off=Decimal(0),
             )
 
-        expected_tax = vda_income * EXPECTED_RATE
+        expected_tax = (vda_income * EXPECTED_RATE).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        claimed_quantized = claimed_tax.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-        # Allow small float tolerance if input wasn't decimal, but strict for now
-        if abs(claimed_tax - expected_tax) < Decimal("0.1"):
+        if claimed_quantized == expected_tax:
              return TaxResult(
                 verified=True,
                 message=f"✅ VDA Tax correct (30% of {vda_income})",

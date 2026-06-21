@@ -21,6 +21,11 @@ class RemittanceGuard:
             usage = parse_decimal_input(financial_year_usage, "financial_year_usage")
         except ValueError as exc:
             return {"verified": False, "error": f"BLOCKED: {exc}"}
+
+        if current_txn < 0:
+            return {"verified": False, "error": "BLOCKED: Remittance amount must be non-negative."}
+        if usage < 0:
+            return {"verified": False, "error": "BLOCKED: Financial year usage must be non-negative."}
         
         # 1. Prohibited Transactions Check (Schedule I)
         prohibited_purposes = ["GAMBLING", "LOTTERY", "RACING", "BANNED_MAGAZINES", "SWEEPSTAKES", "MARGIN_TRADING"]

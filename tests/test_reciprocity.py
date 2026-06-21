@@ -26,7 +26,7 @@ class TestReciprocityGuard:
     def test_no_reciprocity_blocked(self):
         res = self.guard.verify_reciprocity("NY", "TX", same_state=False)
         assert res["verified"] is False
-        assert "No reciprocity agreement" in res["reason"]
+        assert "No reciprocity agreement" in res["message"]
 
     def test_unknown_state_pair_fail_closed(self):
         res = self.guard.verify_reciprocity("CA", "FL", same_state=False)

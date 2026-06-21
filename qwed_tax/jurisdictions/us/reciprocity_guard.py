@@ -91,8 +91,7 @@ class ReciprocityGuard:
 
         return {
             "verified": False,
-            "withholding_state": work,
-            "reason": (
+            "message": (
                 f"No reciprocity agreement between {residence.value} and {work.value}. "
                 f"Default withholding is for Work State ({work.value}), but the guard "
                 f"cannot verify the claimed withholding treatment without a claim to compare."

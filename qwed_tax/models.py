@@ -1,4 +1,4 @@
-from pydantic import BaseModel, PlainSerializer
+from pydantic import BaseModel, ConfigDict, PlainSerializer
 from typing_extensions import Annotated
 from decimal import Decimal
 from typing import List, Optional, Literal
@@ -25,12 +25,14 @@ class State(str, Enum):
     VA = "VA"
 
 class Address(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     street: str
     city: str
     state: State
     zip_code: str
 
 class WorkArrangement(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     employee_id: str
     residence_address: Address
     work_address: Address
@@ -45,6 +47,7 @@ class PaymentType(str, Enum):
     HEALTHCARE = "HEALTHCARE"
 
 class WorkerClassificationParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     worker_id: str
     # ABC Test Criteria
     freedom_from_control: bool # A: Is worker free from control?
@@ -53,21 +56,25 @@ class WorkerClassificationParams(BaseModel):
     state: State
 
 class ContractorPayment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     contractor_id: str
     payment_type: PaymentType
     amount: Annotated[Decimal, PlainSerializer(str, when_used="json")]
     calendar_year: int 
 
 class TaxEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     name: str # e.g. "Federal Income Tax", "Social Security"
     amount: Annotated[Decimal, PlainSerializer(str, when_used="json")]
     
 class DeductionEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     name: str
     amount: Annotated[Decimal, PlainSerializer(str, when_used="json")]
     type: DeductionType
 
 class PayrollEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     employee_id: str
     gross_pay: Annotated[Decimal, PlainSerializer(str, when_used="json")]
     taxes: List[TaxEntry]
@@ -78,6 +85,7 @@ class PayrollEntry(BaseModel):
 DecimalJSON = Annotated[Decimal, PlainSerializer(str, when_used="json")]
 
 class VerificationResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     verified: bool
     recalculated_net_pay: DecimalJSON
     discrepancy: DecimalJSON

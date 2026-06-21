@@ -76,10 +76,23 @@ class QWEDTaxMiddleware:
                 "execution_permitted": False
             }
             
-        # The AI's logic is mathematically sound. Allow execution to Gusto.
+        # The AI's arithmetic is mathematically sound, but arithmetic alone
+        # is NOT full tax verification. Block execution until legal checks
+        # (classification, withholding, reciprocity, filing) are implemented.
         return {
-            "status": "VERIFIED",
-            "message": "AI tax logic mathematically verified. Safe to execute.",
-            "execution_permitted": True,
-            "validated_payload": payroll_entry.model_dump(mode="json")
+            "status": "ARITHMETIC_VERIFIED",
+            "message": (
+                "Gross-to-net arithmetic verified. Legal/tax classification, "
+                "withholding legality, reciprocity, and filing obligations "
+                "were NOT checked. Execution blocked until full verification."
+            ),
+            "execution_permitted": False,
+            "checks_run": ["gross_to_net_arithmetic"],
+            "checks_not_run": [
+                "worker_classification",
+                "withholding_legality",
+                "reciprocity",
+                "filing_obligations",
+            ],
+            "validated_payload": payroll_entry.model_dump(mode="json"),
         }

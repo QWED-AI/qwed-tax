@@ -1,7 +1,8 @@
 from decimal import Decimal
 from typing import Any, Dict
 
-from qwed_tax.audit import TDS_194C, TDS_194H, TDS_194I, TDS_194J, build_trace
+from qwed_tax.audit import TDS_194C, TDS_194H, TDS_194I, TDS_194J, build_trace, trace_proof_ref
+from qwed_tax.diagnostics import TaxDiagnosticResult, TaxDiagnosticStatus
 from qwed_tax.numeric import decimal_text, parse_decimal_input
 
 class TDSGuard:
@@ -80,3 +81,38 @@ class TDSGuard:
                 },
             ),
         }
+
+    @staticmethod
+    def to_diagnostic(result: Dict[str, Any]) -> TaxDiagnosticResult:
+        """Convert a legacy calculate_deduction() dict to TaxDiagnosticResult.
+
+        Backward-compatible migration helper. Guards that already produce
+        audit_trace can be converted with zero logic change.
+        """
+        verified = result.get("verified", False)
+        audit_trace = result.get("audit_trace")
+
+        if not verified:
+            return TaxDiagnosticResult.blocked(
+                agent_message="Tax deduction verification could not be completed.",
+                developer_fields={
+                    "constraint_id": audit_trace["rule_id"] if audit_trace else "TDS_UNKNOWN",
+                    "audit_trace": audit_trace,
+                    "error": result.get("error"),
+                    "deduction": result.get("deduction"),
+                    "net_payable": result.get("net_payable"),
+                },
+            )
+
+        return TaxDiagnosticResult.verified(
+            agent_message="Tax deduction verified.",
+            developer_fields={
+                "constraint_id": audit_trace["rule_id"] if audit_trace else "TDS_VERIFIED",
+                "statute": audit_trace["statute"] if audit_trace else None,
+                "jurisdiction": audit_trace["jurisdiction"] if audit_trace else None,
+                "audit_trace": audit_trace,
+                "deduction": result.get("deduction"),
+                "net_payable": result.get("net_payable"),
+            },
+            evidence=audit_trace or {},
+        )

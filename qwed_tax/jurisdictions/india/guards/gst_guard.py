@@ -14,6 +14,7 @@ from qwed_tax.audit import (
     RuleRef,
     build_trace,
 )
+from qwed_tax.diagnostics import TaxDiagnosticResult
 from qwed_tax.numeric import decimal_text, parse_decimal_input
 
 class EntityType(str, Enum):
@@ -227,6 +228,47 @@ class GSTGuard:
                 },
             ),
         }
+
+    @staticmethod
+    def to_diagnostic(result: Dict[str, Any]) -> TaxDiagnosticResult:
+        """Convert a legacy verify_rcm_applicability() dict to TaxDiagnosticResult."""
+        verified = result.get("verified", False)
+        audit_trace = result.get("audit_trace")
+        computed_only = result.get("computed_only", False)
+
+        if not verified:
+            if computed_only:
+                return TaxDiagnosticResult.unverifiable(
+                    agent_message="RCM liability was computed but not verified against a claim.",
+                    developer_fields={
+                        "constraint_id": audit_trace["rule_id"] if audit_trace else "RCM_COMPUTED_ONLY",
+                        "audit_trace": audit_trace,
+                        "is_rcm": result.get("is_rcm"),
+                        "liability": result.get("liability"),
+                    },
+                )
+            return TaxDiagnosticResult.blocked(
+                agent_message="RCM applicability could not be verified.",
+                developer_fields={
+                    "constraint_id": audit_trace["rule_id"] if audit_trace else "RCM_BLOCKED",
+                    "audit_trace": audit_trace,
+                    "error": result.get("error"),
+                    "is_rcm": result.get("is_rcm"),
+                },
+            )
+
+        return TaxDiagnosticResult.verified(
+            agent_message="RCM applicability verified.",
+            developer_fields={
+                "constraint_id": audit_trace["rule_id"] if audit_trace else "RCM_VERIFIED",
+                "statute": audit_trace["statute"] if audit_trace else None,
+                "jurisdiction": audit_trace["jurisdiction"] if audit_trace else None,
+                "audit_trace": audit_trace,
+                "is_rcm": result.get("is_rcm"),
+                "liability": result.get("liability"),
+            },
+            evidence=audit_trace or {},
+        )
 
     @staticmethod
     def _try_coerce(enum_cls, value):

@@ -1,4 +1,5 @@
-from z3 import Solver, Bool, Implies, Not, And, sat, is_true
+from typing import Optional
+
 from ...models import WorkArrangement, State
 
 class ReciprocityGuard:
@@ -6,72 +7,104 @@ class ReciprocityGuard:
     Verifies State Income Tax Reciprocity Agreements.
     Example: NJ residents working in PA do NOT pay PA tax, they pay NJ tax.
     """
-    
+
     def __init__(self):
-        # We model agreements as pairs of states (Residence, Work)
-        # If (R, W) is in standard_reciprocity, then you pay tax in R, not W.
         self.reciprocal_pairs = {
             (State.NJ, State.PA), (State.PA, State.NJ),
             (State.MD, State.PA), (State.PA, State.MD),
-            (State.VA, State.MD), (State.MD, State.VA), # DC area
+            (State.VA, State.MD), (State.MD, State.VA),
         }
 
     def determine_withholding_state(self, arrangement: WorkArrangement) -> dict:
         """
-        Uses Z3 to prove which state should receive withholding.
+        Determines the correct withholding state for a work arrangement.
+        Returns verified=True only when the withholding state can be
+        deterministically proven (same state or known reciprocity pair).
+        Returns verified=False when no reciprocity exists — the guard
+        cannot verify withholding treatment without a claim to compare.
         """
-        s = Solver()
-        
-        # Z3 Variables representing State Enums as Integers could be complex,
-        # but for this logic, we use Booleans for "IsReciprocal".
-        
         residence = arrangement.residence_address.state
         work = arrangement.work_address.state
-        
-        # 1. Proposition: Reciprocity Exists
-        # Ideally we'd encode the whole table in Z3, but for hybrid approach:
-        reciprocity_exists_val = (residence, work) in self.reciprocal_pairs
-        
-        reciprocity_active = Bool('reciprocity_active')
-        same_state = Bool('same_state')
-        pay_residence = Bool('pay_residence_state')
-        
-        # 2. Logic Rules
-        # Rule 1: Identity. If you live and work in same state, pay that state.
-        s.add(Implies(same_state, pay_residence))
-        
-        # Rule 2: Reciprocity. If Diff State AND Reciprocity Agreements, pay Residence.
-        s.add(Implies(And(Not(same_state), reciprocity_active), pay_residence))
-        
-        # Rule 3: No Reciprocity. If Diff State AND No Reciprocity, pay Work State (usually).
-        # (Simplified rule - creates nexus).
-        s.add(Implies(And(Not(same_state), Not(reciprocity_active)), Not(pay_residence)))
-        
-        # 3. Add Facts
-        s.add(same_state == (residence == work))
-        s.add(reciprocity_active == reciprocity_exists_val)
-        
-        # 4. Check
-        result = s.check()
-        
-        if result == sat:
-            m = s.model()
-            should_pay_residence = is_true(m[pay_residence])
-            
-            target_state = residence if should_pay_residence else work
-            
-            reason = ""
-            if same_state == True or residence == work:
-                reason = "Employees living and working in same state pay that state tax."
-            elif should_pay_residence:
-                reason = f"Reciprocity Agreement exists between {residence} and {work}. Withhold for Residence ({residence})."
-            else:
-                reason = f"No Reciprocity between {residence} and {work}. Withhold for Work State ({work})."
-                
+        return self._evaluate_reciprocity(residence, work)
+
+    def verify_reciprocity(
+        self,
+        residence_state: str,
+        work_state: str,
+        same_state: Optional[bool] = None,
+    ) -> dict:
+        """
+        Verifies whether a state tax reciprocity agreement exists between
+        the residence and work states.
+
+        Returns verified=True only when:
+        - Both states are the same (no reciprocity needed), or
+        - A known reciprocity agreement exists between the states
+
+        Returns verified=False when:
+        - The states are different and no reciprocity agreement exists
+        - Either state is not recognized
+        - same_state claim conflicts with actual state values
+        """
+        residence = self._coerce_state(residence_state)
+        if residence is None:
+            return {
+                "verified": False,
+                "message": f"Unknown residence state '{residence_state}'. Cannot verify reciprocity.",
+            }
+
+        work = self._coerce_state(work_state)
+        if work is None:
+            return {
+                "verified": False,
+                "message": f"Unknown work state '{work_state}'. Cannot verify reciprocity.",
+            }
+
+        if same_state is not None and same_state != (residence == work):
+            return {
+                "verified": False,
+                "message": (
+                    "same_state claim conflicts with residence/work states. "
+                    "Cannot verify reciprocity."
+                ),
+            }
+
+        return self._evaluate_reciprocity(residence, work)
+
+    def _evaluate_reciprocity(self, residence: State, work: State) -> dict:
+        if residence == work:
             return {
                 "verified": True,
-                "withholding_state": target_state,
-                "reason": reason
+                "withholding_state": residence,
+                "reason": "Employees living and working in same state pay that state tax.",
             }
-        else:
-            return {"verified": False, "message": "Logic Error in Tax Rules"}
+
+        if (residence, work) in self.reciprocal_pairs:
+            return {
+                "verified": True,
+                "withholding_state": residence,
+                "reason": (
+                    f"Reciprocity Agreement exists between {residence.value} and "
+                    f"{work.value}. Withhold for Residence ({residence.value})."
+                ),
+            }
+
+        return {
+            "verified": False,
+            "message": (
+                f"No reciprocity agreement between {residence.value} and {work.value}. "
+                f"Default withholding is for Work State ({work.value}), but the guard "
+                f"cannot verify the claimed withholding treatment without a claim to compare."
+            ),
+        }
+
+    @staticmethod
+    def _coerce_state(value) -> State | None:
+        if isinstance(value, State):
+            return value
+        if isinstance(value, str):
+            try:
+                return State(value.strip().upper())
+            except ValueError:
+                return None
+        return None

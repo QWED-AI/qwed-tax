@@ -28,6 +28,20 @@ class TaxPreFlight:
         "sales_tax_assessment": "economic_nexus",
     }
 
+    _KNOWN_GAPS: ClassVar[dict[str, list[str]]] = {
+        "hire": [
+            "payroll_arithmetic",
+            "withholding_legality",
+            "reciprocity",
+            "filing_obligations",
+        ],
+        "pay_invoice": [
+            "itc_eligibility",
+            "gst_split",
+            "rcm_applicability",
+        ],
+    }
+
     _ACTION_CHECKS: ClassVar[dict[str, list[dict[str, Any]]]] = {
         "hire": [
             {
@@ -157,12 +171,16 @@ class TaxPreFlight:
             "action": canonical_action,
             "blocks": [],
             "checks_run": [],
+            "checks_not_run": [],
         }
 
         selected_checks = self._select_checks(canonical_action, intent)
         if not selected_checks:
             report["allowed"] = False
             report["blocks"].append(self._format_missing_claim_message(canonical_action))
+            report["checks_not_run"] = self._compute_checks_not_run(
+                canonical_action, []
+            )
             return report
 
         for check in selected_checks:
@@ -173,12 +191,18 @@ class TaxPreFlight:
                     f"Action '{canonical_action}' is missing required fields for "
                     f"{check['name']}: {', '.join(missing_fields)}."
                 )
+                report["checks_not_run"] = self._compute_checks_not_run(
+                    canonical_action, report["checks_run"]
+                )
                 return report
 
         for check in selected_checks:
             report["checks_run"].append(check["name"])
             getattr(self, check["handler"])(intent, report)
 
+        report["checks_not_run"] = self._compute_checks_not_run(
+            canonical_action, report["checks_run"]
+        )
         return report
 
     # ---- extracted checks (each keeps complexity flat) ----
@@ -217,6 +241,12 @@ class TaxPreFlight:
             f"Supported claim shapes: {'; '.join(options)}."
         )
 
+    def _compute_checks_not_run(self, action: str, run_names: list[str]) -> list[str]:
+        all_names = [c["name"] for c in self._ACTION_CHECKS[action]]
+        not_run = [name for name in all_names if name not in run_names]
+        not_run.extend(self._KNOWN_GAPS.get(action, []))
+        return list(dict.fromkeys(not_run))
+
     def _missing_fields(self, payload: Dict[str, Any], fields: tuple[str, ...]) -> list[str]:
         return [field for field in fields if not self._has_field(payload, field)]
 
@@ -229,7 +259,7 @@ class TaxPreFlight:
         return current is not None and current != ""
 
     def _blocked_report(self, message: str, action: Any = None) -> Dict[str, Any]:
-        return {"allowed": False, "action": action, "blocks": [message], "checks_run": []}
+        return {"allowed": False, "action": action, "blocks": [message], "checks_run": [], "checks_not_run": []}
 
     def _supports_startup_valuation(self, intent: Dict[str, Any]) -> bool:
         return intent.get("investment_round") == "convertible_note"

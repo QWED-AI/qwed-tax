@@ -142,7 +142,52 @@ class TestRCMApplicability:
         assert res["is_rcm"] is True
         assert res["audit_trace"]["inputs"]["service"] == "GTA"
 
-    def test_unknown_string_service_is_forward_charge(self):
+    def test_unknown_string_service_fail_closed(self):
+        """Unknown service type must fail closed (Issue #17) — no silent coercion to OTHER."""
         res = self.guard.verify_rcm_applicability("MYSTERY", "INDIVIDUAL", "BODY_CORPORATE")
-        assert res["is_rcm"] is False
-        assert res["audit_trace"]["rule_id"] == "RCM_NOT_APPLICABLE"
+        assert res["verified"] is False
+        assert "Unknown service type" in res["error"]
+        assert res["is_rcm"] is None
+
+    def test_unknown_entity_fail_closed(self):
+        """Unknown entity type must fail closed — no silent coercion to INDIVIDUAL."""
+        res = self.guard.verify_rcm_applicability("DIRECTOR", "MYSTERY_ENTITY", "BODY_CORPORATE")
+        assert res["verified"] is False
+        assert "Unknown provider entity type" in res["error"]
+
+    def test_list_value_fail_closed(self):
+        """Malformed JSON value (list) must fail closed via TypeError catch."""
+        res = self.guard.verify_rcm_applicability(["GTA"], "INDIVIDUAL", "BODY_CORPORATE")
+        assert res["verified"] is False
+        assert res["is_rcm"] is None
+
+    # -- Dual-mode: verification mode vs computation mode --
+
+    def test_verification_mode_match(self):
+        """When claimed_is_rcm matches computed, verified=True."""
+        res = self.guard.verify_rcm_applicability(
+            ServiceType.GTA, EntityType.INDIVIDUAL, EntityType.BODY_CORPORATE,
+            claimed_is_rcm=True,
+        )
+        assert res["verified"] is True
+        assert res["is_rcm"] is True
+        assert res["claimed_is_rcm"] is True
+
+    def test_verification_mode_mismatch(self):
+        """When claimed_is_rcm does not match computed, verified=False."""
+        res = self.guard.verify_rcm_applicability(
+            ServiceType.GTA, EntityType.INDIVIDUAL, EntityType.BODY_CORPORATE,
+            claimed_is_rcm=False,
+        )
+        assert res["verified"] is False
+        assert "RCM mismatch" in res["error"]
+
+    def test_computation_mode_not_verified(self):
+        """Without claimed_is_rcm, result is computed_only with verified=False (#18)."""
+        res = self.guard.verify_rcm_applicability(
+            ServiceType.GTA, EntityType.INDIVIDUAL, EntityType.BODY_CORPORATE,
+        )
+        assert res["verified"] is False
+        assert res.get("computed_only") is True
+        assert res["is_rcm"] is True
+        assert "claimed_is_rcm" not in res

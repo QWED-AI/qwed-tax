@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 class WorkerType(Enum):
     EMPLOYEE = "W2"
@@ -11,21 +11,44 @@ class ClassificationGuard:
     Focuses on Behavioral and Financial Control.
     """
     
-    def verify_worker_status(self, behavioral_control: bool, financial_control: bool, relationship_permanence: bool) -> WorkerType:
+    def verify_worker_status(
+        self,
+        behavioral_control: bool,
+        financial_control: bool,
+        relationship_permanence: bool,
+    ) -> Optional[WorkerType]:
         """
         Deterministic IRS Common Law Test.
         If an entity controls HOW work is done (behavioral) and pays expenses (financial),
         they are an Employee, not a Contractor.
+
+        Returns:
+            WorkerType.EMPLOYEE — if employee indicators are present (deterministic)
+            WorkerType.CONTRACTOR — only if NO employee indicators are present
+            None — if mixed signals (some but not all employee indicators)
         """
-        # Strict rule: If you control behavior and finances, it's an employee.
+        # Count employee indicators
+        employee_indicators = 0
         if behavioral_control and financial_control:
             return WorkerType.EMPLOYEE
-            
-        # If the relationship is permanent (indefinite), likely an employee unless completely independent
+
         if relationship_permanence and behavioral_control:
-             return WorkerType.EMPLOYEE
-        
-        # Default to Contractor only if significant control is absent
+            return WorkerType.EMPLOYEE
+
+        # Track individual indicators for mixed-signal detection
+        if behavioral_control:
+            employee_indicators += 1
+        if financial_control:
+            employee_indicators += 1
+        if relationship_permanence:
+            employee_indicators += 1
+
+        # Mixed signals: some employee indicators but not enough to conclusively
+        # classify as employee. Must not default to contractor.
+        if employee_indicators > 0:
+            return None  # Ambiguous — caller must block or mark unverifiable
+
+        # No employee indicators at all — contractor is safe
         return WorkerType.CONTRACTOR
 
     def verify_classification_claim(self, llm_claim: str, facts: Dict[str, Any]) -> Dict[str, Any]:
@@ -37,14 +60,31 @@ class ClassificationGuard:
             facts.get("reimburses_expenses", False), # Financial Control
             facts.get("indefinite_relationship", False) # Type of Relationship
         )
-        
+
+        # Mixed signals — cannot conclusively classify
+        if derived_status is None:
+            return {
+                "verified": False,
+                "error": (
+                    "Ambiguous classification: facts contain mixed employee/contractor indicators. "
+                    "Cannot deterministically classify — manual review required."
+                ),
+            }
+
+        # Type guard — non-string claims must fail closed
+        if not isinstance(llm_claim, str) or not llm_claim.strip():
+            return {
+                "verified": False,
+                "error": "Invalid worker classification claim. Expected a non-empty string.",
+            }
+
         # Normalize claim
         claim_normalized = llm_claim.upper()
         if "W-2" in claim_normalized or "EMPLOYEE" in claim_normalized:
             claim_normalized = "W2"
         elif "1099" in claim_normalized or "CONTRACTOR" in claim_normalized:
             claim_normalized = "1099"
-            
+
         if derived_status.value != claim_normalized:
             return {
                 "verified": False,

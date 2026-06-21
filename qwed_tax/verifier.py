@@ -265,7 +265,12 @@ class TaxPreFlight:
 
     def _check_capital_gains(self, intent: Dict[str, Any], report: Dict[str, Any]) -> None:
         dates = intent["dates"]
-        term = self.cg.determine_term(dates["buy"], dates["sell"], intent["asset_type"])
+        try:
+            term = self.cg.determine_term(dates["buy"], dates["sell"], intent["asset_type"])
+        except ValueError as exc:
+            report["allowed"] = False
+            report["blocks"].append(f"Capital gains classification failed: {exc}")
+            return
         rate_check = self.cg.verify_tax_rate(intent["asset_type"], term, intent["claimed_rate"])
         if not rate_check["verified"]:
             report["allowed"] = False

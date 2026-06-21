@@ -1,4 +1,3 @@
-from typing import List, Dict
 from enum import Enum
 
 class TaxHead(str, Enum):
@@ -36,7 +35,17 @@ class InterHeadAdjustmentGuard:
             TaxHead.BUSINESS_SPECULATIVE, TaxHead.OTHER_SOURCES
         ], # ST Loss can be against ST or LT Gain (so LT is allowed, not prohibited)
         
-        TaxHead.VDA: ["ALL"] # Special case: Crypto loss dead ends.
+        TaxHead.VDA: ["ALL"], # Special case: Crypto loss dead ends.
+
+        TaxHead.SALARY: ["ALL"], # Salary losses cannot be set off against any other head.
+    }
+
+    # Heads explicitly known to have no inter-head set-off restrictions
+    # (their losses can be set off against any profit head per Indian tax law)
+    _EXPLICITLY_ALLOWED_LOSS_HEADS = {
+        TaxHead.HOUSE_PROPERTY,
+        TaxHead.BUSINESS_NON_SPECULATIVE,
+        TaxHead.OTHER_SOURCES,
     }
 
     def verify_setoff(self, loss_head: TaxHead, profit_head: TaxHead) -> dict:
@@ -61,7 +70,23 @@ class InterHeadAdjustmentGuard:
                     "message": f"❌ Illegal Set-Off: Loss from {loss_head.value} cannot be set off against {profit_head.value}."
                 }
 
-        # If no restriction found, it's allowed (Default Allow)
+            # Loss head is in the prohibition matrix but this specific pair is not prohibited
+            return {
+                "verified": True,
+                "message": f"✅ Allowed: {loss_head.value} loss set off against {profit_head.value}."
+            }
+
+        # 4. Check if head is explicitly allowed (no restrictions per tax law)
+        if loss_head not in self._EXPLICITLY_ALLOWED_LOSS_HEADS:
+            return {
+                "verified": False,
+                "message": (
+                    f"Loss head {loss_head.value} is not in the configured prohibition matrix "
+                    "or allowlist. Cannot verify set-off legality — manual review required."
+                ),
+            }
+
+        # If no restriction found and head is explicitly allowed, it's allowed
         return {
             "verified": True,
             "message": f"✅ Allowed: {loss_head.value} loss set off against {profit_head.value}."

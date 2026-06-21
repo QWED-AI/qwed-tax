@@ -9,6 +9,7 @@ from qwed_tax.audit import (
     ITC_PERSONAL_CONSUMPTION,
     build_trace,
 )
+from qwed_tax.diagnostics import TaxDiagnosticResult
 from qwed_tax.numeric import decimal_text, parse_decimal_input
 
 
@@ -152,3 +153,38 @@ class InputCreditGuard:
             return {"verified": False, "error": "Invalid GSTIN checksum."}
 
         return {"verified": True}
+
+    @staticmethod
+    def to_diagnostic(result: Dict[str, Any]) -> TaxDiagnosticResult:
+        """Convert a legacy verify_itc_eligibility() dict to TaxDiagnosticResult."""
+        verified = result.get("verified", False)
+        audit_trace = result.get("audit_trace")
+
+        if not verified:
+            return TaxDiagnosticResult.blocked(
+                agent_message="Input tax credit eligibility could not be verified.",
+                developer_fields={
+                    "constraint_id": audit_trace["rule_id"] if audit_trace else "ITC_UNKNOWN",
+                    "audit_trace": audit_trace,
+                    "reason": result.get("reason"),
+                    "eligible_itc": result.get("eligible_itc"),
+                },
+            )
+
+        if audit_trace is None:
+            raise ValueError(
+                "VERIFIED result requires audit_trace — "
+                "use UNVERIFIABLE if no evidence was established."
+            )
+
+        return TaxDiagnosticResult.verified(
+            agent_message="Input tax credit eligibility verified.",
+            developer_fields={
+                "constraint_id": audit_trace["rule_id"],
+                "statute": audit_trace.get("statute"),
+                "jurisdiction": audit_trace.get("jurisdiction"),
+                "audit_trace": audit_trace,
+                "eligible_itc": result.get("eligible_itc"),
+            },
+            evidence=audit_trace,
+        )

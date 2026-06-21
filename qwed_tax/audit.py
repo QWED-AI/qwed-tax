@@ -17,6 +17,8 @@ duplicating inline literals.
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
@@ -93,3 +95,26 @@ def build_trace(
         "outcome": outcome,
         "inputs": copy.deepcopy(inputs) if inputs else {},
     }
+
+
+def trace_proof_ref(trace: Dict[str, Any]) -> str:
+    """Compute a deterministic proof reference hash from an audit trace.
+
+    This binds a VERIFIED verdict to the specific audit_trace that justified it.
+    If the trace changes (different rule, different inputs, different outcome),
+    the hash changes — making verdict/trace drift structurally detectable.
+
+    Args:
+        trace: The dict returned by build_trace().
+
+    Returns:
+        sha256-prefixed hex digest string, e.g. "sha256:abcdef...".
+    """
+    try:
+        payload = json.dumps(trace, sort_keys=True)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"Audit trace must be JSON-serializable for proof_ref hashing: {exc}"
+        ) from exc
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return f"sha256:{digest}"

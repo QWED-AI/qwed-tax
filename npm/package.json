@@ -1,7 +1,7 @@
 {
     "name": "@qwed-ai/tax",
-    "version": "0.1.0",
-    "description": "Deterministic Tax Verification for Agentic Finance (Browser/Node)",
+    "version": "0.2.0",
+    "description": "The Verification Gate for AI-Generated Tax Decisions",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "scripts": {

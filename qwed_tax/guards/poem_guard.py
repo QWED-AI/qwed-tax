@@ -132,7 +132,7 @@ class PoEMGuard:
         audit_trace = result.get("audit_trace")
 
         if not verified:
-            return TaxDiagnosticResult.unverifiable(
+            return TaxDiagnosticResult.blocked(
                 agent_message="PoEM residency verification could not be completed.",
                 developer_fields={
                     "constraint_id": audit_trace["rule_id"] if audit_trace else "POEM_UNKNOWN",
@@ -255,4 +255,5 @@ class PoEMGuard:
             "verified": False,
             "residency": "UNVERIFIABLE",
             "reason": reason,
+            "audit_trace": build_trace(POEM_CBDT_6_2017, "INPUT_VALIDATION_FAILED", {"reason": reason}),
         }

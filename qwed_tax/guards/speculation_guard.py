@@ -92,6 +92,8 @@ class SpeculationGuard:
             ),
         }
 
+    _UNVERIFIABLE_OUTCOMES = {"UNKNOWN_LOSS_SOURCE", "UNKNOWN_PROFIT_SOURCE"}
+
     @staticmethod
     def to_diagnostic(result: Dict[str, Any]) -> TaxDiagnosticResult:
         """Convert a legacy verify_setoff() dict to TaxDiagnosticResult."""
@@ -99,6 +101,17 @@ class SpeculationGuard:
         audit_trace = result.get("audit_trace")
 
         if not verified:
+            outcome = audit_trace.get("outcome") if audit_trace else None
+            if outcome in SpeculationGuard._UNVERIFIABLE_OUTCOMES:
+                return TaxDiagnosticResult.unverifiable(
+                    agent_message="Speculative loss set-off could not be verified — unrecognized source.",
+                    developer_fields={
+                        "constraint_id": audit_trace["rule_id"] if audit_trace else "SPECULATIVE_UNKNOWN",
+                        "audit_trace": audit_trace,
+                        "error": result.get("error"),
+                        "fix": result.get("fix"),
+                    },
+                )
             return TaxDiagnosticResult.blocked(
                 agent_message="Speculative loss set-off verification could not be completed.",
                 developer_fields={

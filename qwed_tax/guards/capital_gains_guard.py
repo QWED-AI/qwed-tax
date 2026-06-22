@@ -111,6 +111,8 @@ class CapitalGainsGuard:
             ),
         }
 
+    _UNVERIFIABLE_OUTCOMES = {"NO_RATE", "SLAB_RATE"}
+
     @staticmethod
     def to_diagnostic(result: Dict[str, Any]) -> TaxDiagnosticResult:
         """Convert a legacy verify_tax_rate() dict to TaxDiagnosticResult."""
@@ -118,6 +120,16 @@ class CapitalGainsGuard:
         audit_trace = result.get("audit_trace")
 
         if not verified:
+            outcome = audit_trace.get("outcome") if audit_trace else None
+            if outcome in CapitalGainsGuard._UNVERIFIABLE_OUTCOMES:
+                return TaxDiagnosticResult.unverifiable(
+                    agent_message="Capital gains tax rate could not be verified — insufficient evidence or unknown rule.",
+                    developer_fields={
+                        "constraint_id": audit_trace["rule_id"] if audit_trace else "CG_UNKNOWN",
+                        "audit_trace": audit_trace,
+                        "error": result.get("error"),
+                    },
+                )
             return TaxDiagnosticResult.blocked(
                 agent_message="Capital gains tax rate verification could not be completed.",
                 developer_fields={

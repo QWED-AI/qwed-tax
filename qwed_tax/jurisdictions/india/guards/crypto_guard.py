@@ -103,6 +103,8 @@ class CryptoTaxGuard:
                 audit_trace=build_trace(VDA_115BBH, "FLAT_TAX_MISMATCH", {"vda_income": str(vda_income), "expected_tax": str(expected_tax), "claimed_tax": str(claimed_tax)}),
             )
 
+    _UNVERIFIABLE_OUTCOMES = {"GAIN_SIDE_NOT_IMPLEMENTED"}
+
     @staticmethod
     def to_diagnostic(result: TaxResult) -> TaxDiagnosticResult:
         """Convert a TaxResult to TaxDiagnosticResult."""
@@ -110,6 +112,17 @@ class CryptoTaxGuard:
         audit_trace = result.audit_trace
 
         if not verified:
+            outcome = audit_trace.get("outcome") if audit_trace else None
+            if outcome in CryptoTaxGuard._UNVERIFIABLE_OUTCOMES:
+                return TaxDiagnosticResult.unverifiable(
+                    agent_message="Crypto tax could not be verified — gain-side verification not implemented.",
+                    developer_fields={
+                        "constraint_id": audit_trace["rule_id"] if audit_trace else "VDA_UNKNOWN",
+                        "audit_trace": audit_trace,
+                        "error": result.message,
+                        "allowed_set_off": str(result.allowed_set_off),
+                    },
+                )
             return TaxDiagnosticResult.blocked(
                 agent_message="Crypto tax verification could not be completed.",
                 developer_fields={

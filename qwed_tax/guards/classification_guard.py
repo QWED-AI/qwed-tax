@@ -110,6 +110,8 @@ class ClassificationGuard:
             ),
         }
 
+    _UNVERIFIABLE_OUTCOMES = {"AMBIGUOUS"}
+
     @staticmethod
     def to_diagnostic(result: Dict[str, Any]) -> TaxDiagnosticResult:
         """Convert a legacy verify_classification_claim() dict to TaxDiagnosticResult."""
@@ -117,6 +119,16 @@ class ClassificationGuard:
         audit_trace = result.get("audit_trace")
 
         if not verified:
+            outcome = audit_trace.get("outcome") if audit_trace else None
+            if outcome in ClassificationGuard._UNVERIFIABLE_OUTCOMES:
+                return TaxDiagnosticResult.unverifiable(
+                    agent_message="Worker classification could not be verified — ambiguous indicators.",
+                    developer_fields={
+                        "constraint_id": audit_trace["rule_id"] if audit_trace else "IRS_COMMON_LAW_UNKNOWN",
+                        "audit_trace": audit_trace,
+                        "error": result.get("error"),
+                    },
+                )
             return TaxDiagnosticResult.blocked(
                 agent_message="Worker classification verification could not be completed.",
                 developer_fields={

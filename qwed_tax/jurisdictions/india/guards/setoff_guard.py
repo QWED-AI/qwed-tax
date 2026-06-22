@@ -130,6 +130,8 @@ class InterHeadAdjustmentGuard:
             ),
         }
 
+    _UNVERIFIABLE_OUTCOMES = {"UNKNOWN_HEAD"}
+
     @staticmethod
     def to_diagnostic(result: Dict[str, Any]) -> TaxDiagnosticResult:
         """Convert a legacy verify_setoff() dict to TaxDiagnosticResult."""
@@ -137,6 +139,16 @@ class InterHeadAdjustmentGuard:
         audit_trace = result.get("audit_trace")
 
         if not verified:
+            outcome = audit_trace.get("outcome") if audit_trace else None
+            if outcome in InterHeadAdjustmentGuard._UNVERIFIABLE_OUTCOMES:
+                return TaxDiagnosticResult.unverifiable(
+                    agent_message="Inter-head set-off could not be verified — unknown tax head.",
+                    developer_fields={
+                        "constraint_id": audit_trace["rule_id"] if audit_trace else "INTERHEAD_UNKNOWN",
+                        "audit_trace": audit_trace,
+                        "error": result.get("message"),
+                    },
+                )
             return TaxDiagnosticResult.blocked(
                 agent_message="Inter-head set-off verification could not be completed.",
                 developer_fields={

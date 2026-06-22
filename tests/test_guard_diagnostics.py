@@ -4,7 +4,6 @@ import pytest
 from decimal import Decimal
 
 from qwed_tax.diagnostics import TaxDiagnosticResult, TaxDiagnosticStatus
-from qwed_tax.audit import build_trace
 
 
 class TestCapitalGainsGuardDiagnostic:
@@ -27,13 +26,23 @@ class TestCapitalGainsGuardDiagnostic:
         assert diag.proof_ref is None
         assert "Rate Mismatch" in diag.developer_fields["error"]
 
-    def test_blocked_no_rate(self):
+    def test_unverifiable_no_rate(self):
         from qwed_tax.guards.capital_gains_guard import CapitalGainsGuard
         guard = CapitalGainsGuard()
         raw = guard.verify_tax_rate("unknown_asset", "LTCG", "10%")
         diag = CapitalGainsGuard.to_diagnostic(raw)
-        assert diag.status is TaxDiagnosticStatus.BLOCKED
+        assert diag.status is TaxDiagnosticStatus.UNVERIFIABLE
+        assert diag.proof_ref is None
         assert diag.developer_fields["constraint_id"] == "CG_NO_RATE_CONFIGURED"
+
+    def test_unverifiable_slab_rate(self):
+        from qwed_tax.guards.capital_gains_guard import CapitalGainsGuard
+        guard = CapitalGainsGuard()
+        raw = guard.verify_tax_rate("debt", "LTCG", "20%")
+        diag = CapitalGainsGuard.to_diagnostic(raw)
+        assert diag.status is TaxDiagnosticStatus.UNVERIFIABLE
+        assert diag.proof_ref is None
+        assert "slab" in diag.developer_fields["error"].lower()
 
     def test_verified_without_audit_trace_raises(self):
         from qwed_tax.guards.capital_gains_guard import CapitalGainsGuard
@@ -77,7 +86,7 @@ class TestClassificationGuardDiagnostic:
             "indefinite_relationship": False,
         })
         diag = ClassificationGuard.to_diagnostic(raw)
-        assert diag.status is TaxDiagnosticStatus.BLOCKED
+        assert diag.status is TaxDiagnosticStatus.UNVERIFIABLE
         assert "Ambiguous" in diag.developer_fields["error"]
 
     def test_verified_without_audit_trace_raises(self):
@@ -111,7 +120,7 @@ class TestSpeculationGuardDiagnostic:
         guard = SpeculationGuard()
         raw = guard.verify_setoff("unknown", "50000", "f&o")
         diag = SpeculationGuard.to_diagnostic(raw)
-        assert diag.status is TaxDiagnosticStatus.BLOCKED
+        assert diag.status is TaxDiagnosticStatus.UNVERIFIABLE
         assert "Unrecognized" in diag.developer_fields["error"]
 
     def test_verified_without_audit_trace_raises(self):
@@ -152,6 +161,22 @@ class TestInterHeadAdjustmentGuardDiagnostic:
         assert diag.status is TaxDiagnosticStatus.BLOCKED
         assert diag.developer_fields["constraint_id"] == "SPECULATIVE_SETOFF_73"
 
+    def test_unverifiable_unknown_head(self):
+        from qwed_tax.jurisdictions.india.guards.setoff_guard import TaxHead
+        # Simulate an unknown head not in matrix or allowlist
+        # TaxHead doesn't have an "unknown" member, so we test via the
+        # to_diagnostic path directly with a crafted result
+        from qwed_tax.jurisdictions.india.guards.setoff_guard import InterHeadAdjustmentGuard
+        from qwed_tax.audit import build_trace, INTERHEAD_SETOFF_71
+        raw = {
+            "verified": False,
+            "message": "Loss head UNKNOWN is not in the configured prohibition matrix.",
+            "audit_trace": build_trace(INTERHEAD_SETOFF_71, "UNKNOWN_HEAD", {"loss_head": "UNKNOWN"}),
+        }
+        diag = InterHeadAdjustmentGuard.to_diagnostic(raw)
+        assert diag.status is TaxDiagnosticStatus.UNVERIFIABLE
+        assert diag.proof_ref is None
+
     def test_verified_without_audit_trace_raises(self):
         from qwed_tax.jurisdictions.india.guards.setoff_guard import InterHeadAdjustmentGuard
         with pytest.raises(ValueError, match="audit_trace"):
@@ -176,6 +201,14 @@ class TestCryptoTaxGuardDiagnostic:
         assert diag.status is TaxDiagnosticStatus.BLOCKED
         assert diag.proof_ref is None
         assert diag.developer_fields["constraint_id"] == "VDA_SETOFF_PROHIBITION"
+
+    def test_unverifiable_gain_side_not_implemented(self):
+        from qwed_tax.jurisdictions.india.guards.crypto_guard import CryptoTaxGuard
+        guard = CryptoTaxGuard()
+        raw = guard.verify_set_off({"VDA": Decimal("-5000")}, gains={"BUSINESS": Decimal("10000")})
+        diag = CryptoTaxGuard.to_diagnostic(raw)
+        assert diag.status is TaxDiagnosticStatus.UNVERIFIABLE
+        assert diag.proof_ref is None
 
     def test_verified_flat_tax_correct(self):
         from qwed_tax.jurisdictions.india.guards.crypto_guard import CryptoTaxGuard
@@ -339,7 +372,7 @@ class TestPoEMGuardDiagnostic:
             key_management_location="India",
         )
         diag = PoEMGuard.to_diagnostic(raw)
-        assert diag.status is TaxDiagnosticStatus.UNVERIFIABLE
+        assert diag.status is TaxDiagnosticStatus.BLOCKED
         assert diag.proof_ref is None
 
     def test_verified_without_audit_trace_raises(self):

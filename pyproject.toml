@@ -1,7 +1,7 @@
 [project]
 name = "qwed-tax"
 version = "0.2.0"
-description = "The Verification Gate for AI-Generated Tax Decisions."
+description = "The Verification Gate for AI-Generated Tax Decisions"
 authors = [
     {name = "QWED Team", email = "rahul@qwedai.com"},
 ]

@@ -92,7 +92,7 @@ class SpeculationGuard:
             ),
         }
 
-    _UNVERIFIABLE_OUTCOMES = {"UNKNOWN_LOSS_SOURCE", "UNKNOWN_PROFIT_SOURCE"}
+    _UNVERIFIABLE_OUTCOMES: frozenset[str] = frozenset({"UNKNOWN_LOSS_SOURCE", "UNKNOWN_PROFIT_SOURCE"})
 
     @staticmethod
     def to_diagnostic(result: Dict[str, Any]) -> TaxDiagnosticResult:

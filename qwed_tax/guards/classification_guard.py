@@ -110,7 +110,7 @@ class ClassificationGuard:
             ),
         }
 
-    _UNVERIFIABLE_OUTCOMES = {"AMBIGUOUS"}
+    _UNVERIFIABLE_OUTCOMES: frozenset[str] = frozenset({"AMBIGUOUS"})
 
     @staticmethod
     def to_diagnostic(result: Dict[str, Any]) -> TaxDiagnosticResult:

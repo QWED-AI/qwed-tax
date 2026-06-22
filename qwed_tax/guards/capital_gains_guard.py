@@ -111,7 +111,7 @@ class CapitalGainsGuard:
             ),
         }
 
-    _UNVERIFIABLE_OUTCOMES = {"NO_RATE", "SLAB_RATE"}
+    _UNVERIFIABLE_OUTCOMES: frozenset[str] = frozenset({"NO_RATE", "SLAB_RATE"})
 
     @staticmethod
     def to_diagnostic(result: Dict[str, Any]) -> TaxDiagnosticResult:

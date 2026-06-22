@@ -184,6 +184,12 @@ class TestInterHeadAdjustmentGuardDiagnostic:
 
 
 class TestCryptoTaxGuardDiagnostic:
+    def test_verified_without_audit_trace_raises(self):
+        from qwed_tax.jurisdictions.india.guards.crypto_guard import CryptoTaxGuard, TaxResult
+        from decimal import Decimal
+        with pytest.raises(ValueError, match="audit_trace"):
+            CryptoTaxGuard.to_diagnostic(TaxResult(verified=True, message="x", allowed_set_off=Decimal(0)))
+
     def test_verified_no_vda_loss(self):
         from qwed_tax.jurisdictions.india.guards.crypto_guard import CryptoTaxGuard
         guard = CryptoTaxGuard()
@@ -451,6 +457,78 @@ class TestAllGuardsSerialization:
         )
         raw = guard.verify_exempt_status(form)
         diag = WithholdingGuard.to_diagnostic(raw)
+        restored = TaxDiagnosticResult.from_dict(diag.to_dict())
+        assert restored.status == diag.status
+        assert restored.proof_ref == diag.proof_ref
+
+    def test_classification_roundtrip(self):
+        from qwed_tax.guards.classification_guard import ClassificationGuard
+        guard = ClassificationGuard()
+        raw = guard.verify_classification_claim("1099", {
+            "provides_tools": False,
+            "reimburses_expenses": False,
+            "indefinite_relationship": False,
+        })
+        diag = ClassificationGuard.to_diagnostic(raw)
+        restored = TaxDiagnosticResult.from_dict(diag.to_dict())
+        assert restored.status == diag.status
+        assert restored.proof_ref == diag.proof_ref
+
+    def test_speculation_roundtrip(self):
+        from qwed_tax.guards.speculation_guard import SpeculationGuard
+        guard = SpeculationGuard()
+        raw = guard.verify_setoff("f&o", "50000", "capital_gains")
+        diag = SpeculationGuard.to_diagnostic(raw)
+        restored = TaxDiagnosticResult.from_dict(diag.to_dict())
+        assert restored.status == diag.status
+        assert restored.proof_ref == diag.proof_ref
+
+    def test_interhead_roundtrip(self):
+        from qwed_tax.jurisdictions.india.guards.setoff_guard import (
+            InterHeadAdjustmentGuard, TaxHead,
+        )
+        guard = InterHeadAdjustmentGuard()
+        raw = guard.verify_setoff(TaxHead.HOUSE_PROPERTY, TaxHead.SALARY)
+        diag = InterHeadAdjustmentGuard.to_diagnostic(raw)
+        restored = TaxDiagnosticResult.from_dict(diag.to_dict())
+        assert restored.status == diag.status
+        assert restored.proof_ref == diag.proof_ref
+
+    def test_valuation_roundtrip(self):
+        from qwed_tax.guards.valuation_guard import ValuationGuard
+        guard = ValuationGuard()
+        raw = guard.verify_conversion("100000", "5.00", "0.20", "10.00")
+        diag = ValuationGuard.to_diagnostic(raw)
+        restored = TaxDiagnosticResult.from_dict(diag.to_dict())
+        assert restored.status == diag.status
+        assert restored.proof_ref == diag.proof_ref
+
+    def test_remittance_roundtrip(self):
+        from qwed_tax.guards.remittance_guard import RemittanceGuard
+        guard = RemittanceGuard()
+        raw = guard.verify_lrs_limit("50000", "EDUCATION", "100000")
+        diag = RemittanceGuard.to_diagnostic(raw)
+        restored = TaxDiagnosticResult.from_dict(diag.to_dict())
+        assert restored.status == diag.status
+        assert restored.proof_ref == diag.proof_ref
+
+    def test_poem_roundtrip(self):
+        from qwed_tax.guards.poem_guard import PoEMGuard
+        guard = PoEMGuard()
+        raw = guard.determine_residency(
+            company_name="GlobalCorp",
+            is_foreign_incorp=True,
+            turnover_total="10000000",
+            turnover_outside_india="8000000",
+            assets_total="5000000",
+            assets_outside_india="4000000",
+            employees_total=100,
+            employees_outside_india=80,
+            payroll_total="1000000",
+            payroll_outside_india="800000",
+            key_management_location="USA",
+        )
+        diag = PoEMGuard.to_diagnostic(raw)
         restored = TaxDiagnosticResult.from_dict(diag.to_dict())
         assert restored.status == diag.status
         assert restored.proof_ref == diag.proof_ref

@@ -103,7 +103,7 @@ class CryptoTaxGuard:
                 audit_trace=build_trace(VDA_115BBH, "FLAT_TAX_MISMATCH", {"vda_income": str(vda_income), "expected_tax": str(expected_tax), "claimed_tax": str(claimed_tax)}),
             )
 
-    _UNVERIFIABLE_OUTCOMES = {"GAIN_SIDE_NOT_IMPLEMENTED"}
+    _UNVERIFIABLE_OUTCOMES: frozenset[str] = frozenset({"GAIN_SIDE_NOT_IMPLEMENTED"})
 
     @staticmethod
     def to_diagnostic(result: TaxResult) -> TaxDiagnosticResult:

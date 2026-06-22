@@ -130,7 +130,7 @@ class InterHeadAdjustmentGuard:
             ),
         }
 
-    _UNVERIFIABLE_OUTCOMES = {"UNKNOWN_HEAD"}
+    _UNVERIFIABLE_OUTCOMES: frozenset[str] = frozenset({"UNKNOWN_HEAD"})
 
     @staticmethod
     def to_diagnostic(result: Dict[str, Any]) -> TaxDiagnosticResult:

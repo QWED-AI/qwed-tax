@@ -1,6 +1,9 @@
 from enum import Enum
 from typing import Dict, Any, Optional
 
+from qwed_tax.audit import IRS_COMMON_LAW, build_trace
+from qwed_tax.diagnostics import TaxDiagnosticResult
+
 class WorkerType(Enum):
     EMPLOYEE = "W2"
     CONTRACTOR = "1099"
@@ -69,6 +72,9 @@ class ClassificationGuard:
                     "Ambiguous classification: facts contain mixed employee/contractor indicators. "
                     "Cannot deterministically classify — manual review required."
                 ),
+                "audit_trace": build_trace(
+                    IRS_COMMON_LAW, "AMBIGUOUS", {"facts": facts}
+                ),
             }
 
         # Type guard — non-string claims must fail closed
@@ -76,6 +82,9 @@ class ClassificationGuard:
             return {
                 "verified": False,
                 "error": "Invalid worker classification claim. Expected a non-empty string.",
+                "audit_trace": build_trace(
+                    IRS_COMMON_LAW, "INVALID_CLAIM", {"facts": facts}
+                ),
             }
 
         # Normalize claim
@@ -88,6 +97,60 @@ class ClassificationGuard:
         if derived_status.value != claim_normalized:
             return {
                 "verified": False,
-                "error": f"Misclassification Risk: Facts indicate {derived_status.value}, but AI claimed {llm_claim}. This creates IRS liability."
+                "error": f"Misclassification Risk: Facts indicate {derived_status.value}, but AI claimed {llm_claim}. This creates IRS liability.",
+                "audit_trace": build_trace(
+                    IRS_COMMON_LAW, "MISCLASSIFICATION", {"derived": derived_status.value, "claimed": llm_claim}
+                ),
             }
-        return {"verified": True}
+
+        return {
+            "verified": True,
+            "audit_trace": build_trace(
+                IRS_COMMON_LAW, "CLASSIFICATION_VERIFIED", {"derived": derived_status.value, "claimed": llm_claim}
+            ),
+        }
+
+    _UNVERIFIABLE_OUTCOMES: frozenset[str] = frozenset({"AMBIGUOUS"})
+
+    @staticmethod
+    def to_diagnostic(result: Dict[str, Any]) -> TaxDiagnosticResult:
+        """Convert a legacy verify_classification_claim() dict to TaxDiagnosticResult."""
+        verified = result.get("verified", False)
+        audit_trace = result.get("audit_trace")
+
+        if not verified:
+            outcome = audit_trace.get("outcome") if audit_trace else None
+            if outcome in ClassificationGuard._UNVERIFIABLE_OUTCOMES:
+                return TaxDiagnosticResult.unverifiable(
+                    agent_message="Worker classification could not be verified — ambiguous indicators.",
+                    developer_fields={
+                        "constraint_id": audit_trace["rule_id"] if audit_trace else "IRS_COMMON_LAW_UNKNOWN",
+                        "audit_trace": audit_trace,
+                        "error": result.get("error"),
+                    },
+                )
+            return TaxDiagnosticResult.blocked(
+                agent_message="Worker classification verification could not be completed.",
+                developer_fields={
+                    "constraint_id": audit_trace["rule_id"] if audit_trace else "IRS_COMMON_LAW_UNKNOWN",
+                    "audit_trace": audit_trace,
+                    "error": result.get("error"),
+                },
+            )
+
+        if audit_trace is None:
+            raise ValueError(
+                "VERIFIED result requires audit_trace — "
+                "use UNVERIFIABLE if no evidence was established."
+            )
+
+        return TaxDiagnosticResult.verified(
+            agent_message="Worker classification verified.",
+            developer_fields={
+                "constraint_id": audit_trace["rule_id"],
+                "statute": audit_trace.get("statute"),
+                "jurisdiction": audit_trace.get("jurisdiction"),
+                "audit_trace": audit_trace,
+            },
+            evidence=audit_trace,
+        )

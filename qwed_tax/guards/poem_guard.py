@@ -1,6 +1,8 @@
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict
 
+from qwed_tax.audit import POEM_CBDT_6_2017, POEM_SECTION_6_3, build_trace
+from qwed_tax.diagnostics import TaxDiagnosticResult
 from qwed_tax.numeric import decimal_text, parse_decimal_input
 
 RATIO_SCALE = Decimal("0.0001")
@@ -41,7 +43,12 @@ class PoEMGuard:
         """
         
         if not is_foreign_incorp:
-            return {"verified": True, "residency": "RESIDENT", "reason": "Incorporated in India"}
+            return {
+                "verified": True,
+                "residency": "RESIDENT",
+                "reason": "Incorporated in India",
+                "audit_trace": build_trace(POEM_SECTION_6_3, "DOMESTIC_COMPANY", {"company_name": company_name}),
+            }
 
         parsed_values, error = self._parse_numeric_values(
             turnover_total,
@@ -103,8 +110,58 @@ class PoEMGuard:
                 "employees_outside_ratio": decimal_text(emp_ratio),
                 "payroll_outside_ratio": decimal_text(payroll_ratio),
             },
-            "reason": reason
+            "reason": reason,
+            "audit_trace": build_trace(
+                POEM_CBDT_6_2017,
+                "RESIDENCY_DETERMINED",
+                {
+                    "residency": residency,
+                    "is_aboi": is_aboi,
+                    "assets_outside_ratio": decimal_text(assets_ratio),
+                    "employees_outside_ratio": decimal_text(emp_ratio),
+                    "payroll_outside_ratio": decimal_text(payroll_ratio),
+                    "key_management_location": key_management_location,
+                },
+            ),
         }
+
+    @staticmethod
+    def to_diagnostic(result: Dict[str, Any]) -> TaxDiagnosticResult:
+        """Convert a legacy determine_residency() dict to TaxDiagnosticResult."""
+        verified = result.get("verified", False)
+        audit_trace = result.get("audit_trace")
+
+        if not verified:
+            return TaxDiagnosticResult.blocked(
+                agent_message="PoEM residency verification could not be completed.",
+                developer_fields={
+                    "constraint_id": audit_trace["rule_id"] if audit_trace else "POEM_UNKNOWN",
+                    "audit_trace": audit_trace,
+                    "residency": result.get("residency"),
+                    "reason": result.get("reason"),
+                },
+            )
+
+        if audit_trace is None:
+            raise ValueError(
+                "VERIFIED result requires audit_trace — "
+                "use UNVERIFIABLE if no evidence was established."
+            )
+
+        return TaxDiagnosticResult.verified(
+            agent_message="PoEM residency verified.",
+            developer_fields={
+                "constraint_id": audit_trace["rule_id"],
+                "statute": audit_trace.get("statute"),
+                "jurisdiction": audit_trace.get("jurisdiction"),
+                "audit_trace": audit_trace,
+                "residency": result.get("residency"),
+                "is_aboi": result.get("is_aboi"),
+                "metrics": result.get("metrics"),
+                "reason": result.get("reason"),
+            },
+            evidence=audit_trace,
+        )
 
     def _parse_numeric_values(
         self,
@@ -198,4 +255,5 @@ class PoEMGuard:
             "verified": False,
             "residency": "UNVERIFIABLE",
             "reason": reason,
+            "audit_trace": build_trace(POEM_CBDT_6_2017, "INPUT_VALIDATION_FAILED", {"reason": reason}),
         }

@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 JURISDICTION_INDIA = "INDIA"
+JURISDICTION_US = "US"
 
 
 @dataclass(frozen=True)
@@ -67,6 +68,86 @@ RCM_IMPORT_SERVICE = RuleRef(
 )
 RCM_NOT_APPLICABLE = RuleRef(
     "RCM_NOT_APPLICABLE", "CGST Act, Section 9(1) (Forward charge)"
+)
+
+
+# Capital Gains (Income Tax Act)
+CG_EQUITY_LTCG_112A = RuleRef(
+    "CG_EQUITY_LTCG_112A", "Income Tax Act, Section 112A (Equity LTCG 12.5%)"
+)
+CG_EQUITY_STCG_111A = RuleRef(
+    "CG_EQUITY_STCG_111A", "Income Tax Act, Section 111A (Equity STCG 20%)"
+)
+CG_DEBT_FUND_50AA = RuleRef(
+    "CG_DEBT_FUND_50AA", "Income Tax Act, Section 50AA (Debt Funds STCG)"
+)
+CG_NO_RATE_CONFIGURED = RuleRef(
+    "CG_NO_RATE_CONFIGURED", "Income Tax Act (No rate configured for asset/term pair)"
+)
+
+
+# Speculation & Inter-head Set-off (Income Tax Act)
+SPECULATIVE_43_5 = RuleRef(
+    "SPECULATIVE_43_5", "Income Tax Act, Section 43(5) (Speculative Business)"
+)
+SPECULATIVE_SETOFF_73 = RuleRef(
+    "SPECULATIVE_SETOFF_73", "Income Tax Act, Section 73 (Speculative Loss Set-off)"
+)
+INTERHEAD_SETOFF_71 = RuleRef(
+    "INTERHEAD_SETOFF_71", "Income Tax Act, Section 71 (Inter-head Set-off)"
+)
+CAPITAL_GAINS_SETOFF_74 = RuleRef(
+    "CAPITAL_GAINS_SETOFF_74", "Income Tax Act, Section 74 (Capital Gains Loss Set-off)"
+)
+
+
+# Crypto / VDA (Income Tax Act)
+VDA_115BBH = RuleRef(
+    "VDA_115BBH", "Income Tax Act, Section 115BBH (VDA Tax 30%)"
+)
+VDA_SETOFF_PROHIBITION = RuleRef(
+    "VDA_SETOFF_PROHIBITION",
+    "Income Tax Act, Section 115BBH(2) (VDA Loss Set-off Prohibition)",
+)
+
+
+# PoEM (Income Tax Act / CBDT)
+POEM_SECTION_6_3 = RuleRef(
+    "POEM_SECTION_6_3", "Income Tax Act, Section 6(3) (PoEM)"
+)
+POEM_CBDT_6_2017 = RuleRef(
+    "POEM_CBDT_6_2017", "CBDT Circular 6 of 2017 (PoEM Guidelines)"
+)
+
+
+# FEMA / LRS / TCS
+LRS_LIMIT = RuleRef(
+    "LRS_LIMIT", "FEMA, Liberalised Remittance Scheme (RBI)"
+)
+FEMA_SCHEDULE_I = RuleRef(
+    "FEMA_SCHEDULE_I", "FEMA Schedule I (Prohibited Remittances)"
+)
+TCS_LRS_206CR = RuleRef(
+    "TCS_LRS_206CR", "Income Tax Act, Section 206CR (TCS on LRS)"
+)
+
+
+# IRS (US)
+IRS_COMMON_LAW = RuleRef(
+    "IRS_COMMON_LAW",
+    "IRS Common Law Rules (Worker Classification)",
+    JURISDICTION_US,
+)
+W4_EXEMPT_PUB505 = RuleRef(
+    "W4_EXEMPT_PUB505",
+    "IRS Publication 505 (W-4 Exempt Status)",
+    JURISDICTION_US,
+)
+
+
+# Valuation (no statute — convertible note/SAFE math)
+SAFE_CONVERSION = RuleRef(
+    "SAFE_CONVERSION", "Convertible Note/SAFE Valuation", "GENERIC"
 )
 
 

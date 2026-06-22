@@ -26,7 +26,7 @@ powered by Z3 and Decimal math.
 
 ---
 
-### ⚔️ Why QWED-Tax?
+## ⚔️ Why QWED-Tax?
 Unlike calculators (Avalara) or executors (Gusto), QWED is a **Verifier**. We sit *between* the AI and the Execution.
 
 | Solution | What They Do | The Risk | QWED's Role |
@@ -42,7 +42,7 @@ misclassifying workers, miscalculating withholding, and filing incorrect returns
 
 QWED-Tax is the verification gate:
 
-```
+```text
 AI-generated tax decision
         ↓
 Deterministic verification (Allow / Block / Unverifiable)
@@ -174,13 +174,13 @@ in_tax = TaxVerifier(jurisdiction="INDIA")
 res = in_tax.verify_india_crypto(losses={"VDA": -5000}, gains={"BUSINESS": 50000})
 print(res.message) 
 # -> "⚠️ Section 115BBH Alert: VDA loss cannot be set off."
+```
 
 ## 🧾 Accounts Payable Verification
 `qwed-tax` verifies tax decisions in the Procure-to-Pay cycle for AI Agents:
 *   **Validation:** Checks GSTIN/VAT ID formats.
 *   **Verification:** Blocks Input Tax Credit (ITC) on "Personal" categories (Food, Cars, Gifts).
 *   **Withholding:** Verifies TDS/Retention amounts before commercial payment.
-```
 
 ## 🌐 TypeScript SDK
 Run verification checks proactively in the browser/frontend.
@@ -199,7 +199,7 @@ const result = TaxPreFlight.audit({
 });
 
 if (!result.allowed) {
-   alert(" Compliance Block: " + result.blocks.join(", "));
+   alert(" Verification Block: " + result.blocks.join(", "));
 }
 ```
 

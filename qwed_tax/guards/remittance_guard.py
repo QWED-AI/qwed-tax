@@ -1,6 +1,8 @@
 from decimal import Decimal
 from typing import Any, Dict
 
+from qwed_tax.audit import FEMA_SCHEDULE_I, LRS_LIMIT, build_trace
+from qwed_tax.diagnostics import TaxDiagnosticResult
 from qwed_tax.numeric import decimal_text, parse_decimal_input
 
 class RemittanceGuard:
@@ -20,19 +22,32 @@ class RemittanceGuard:
             current_txn = parse_decimal_input(amount_usd, "amount_usd")
             usage = parse_decimal_input(financial_year_usage, "financial_year_usage")
         except ValueError as exc:
-            return {"verified": False, "error": f"BLOCKED: {exc}"}
+            return {
+                "verified": False,
+                "error": f"BLOCKED: {exc}",
+                "audit_trace": build_trace(LRS_LIMIT, "INVALID_INPUT", {"amount_usd": str(amount_usd), "financial_year_usage": str(financial_year_usage)}),
+            }
 
         if current_txn < 0:
-            return {"verified": False, "error": "BLOCKED: Remittance amount must be non-negative."}
+            return {
+                "verified": False,
+                "error": "BLOCKED: Remittance amount must be non-negative.",
+                "audit_trace": build_trace(LRS_LIMIT, "NEGATIVE_AMOUNT", {"amount_usd": decimal_text(current_txn)}),
+            }
         if usage < 0:
-            return {"verified": False, "error": "BLOCKED: Financial year usage must be non-negative."}
+            return {
+                "verified": False,
+                "error": "BLOCKED: Financial year usage must be non-negative.",
+                "audit_trace": build_trace(LRS_LIMIT, "NEGATIVE_USAGE", {"financial_year_usage": decimal_text(usage)}),
+            }
         
         # 1. Prohibited Transactions Check (Schedule I)
         prohibited_purposes = ["GAMBLING", "LOTTERY", "RACING", "BANNED_MAGAZINES", "SWEEPSTAKES", "MARGIN_TRADING"]
         if any(p in purpose.upper() for p in prohibited_purposes):
             return {
                 "verified": False,
-                "error": f"BLOCKED: Remittance for '{purpose}' is strictly prohibited under FEMA Schedule I."
+                "error": f"BLOCKED: Remittance for '{purpose}' is strictly prohibited under FEMA Schedule I.",
+                "audit_trace": build_trace(FEMA_SCHEDULE_I, "PROHIBITED", {"purpose": purpose}),
             }
 
         # 2. Limit Check
@@ -42,10 +57,47 @@ class RemittanceGuard:
                  "error": (
                      "BLOCKED: Transaction exceeds LRS limit ($250,000). "
                      f"Remaining: ${decimal_text(limit - usage)}"
-                 )
+                 ),
+                 "audit_trace": build_trace(LRS_LIMIT, "LIMIT_EXCEEDED", {"amount_usd": decimal_text(current_txn), "usage": decimal_text(usage), "limit": decimal_text(limit)}),
              }
             
-        return {"verified": True}
+        return {
+            "verified": True,
+            "audit_trace": build_trace(LRS_LIMIT, "WITHIN_LIMIT", {"amount_usd": decimal_text(current_txn), "usage": decimal_text(usage), "limit": decimal_text(limit)}),
+        }
+
+    @staticmethod
+    def to_diagnostic(result: Dict[str, Any]) -> TaxDiagnosticResult:
+        """Convert a legacy verify_lrs_limit() dict to TaxDiagnosticResult."""
+        verified = result.get("verified", False)
+        audit_trace = result.get("audit_trace")
+
+        if not verified:
+            return TaxDiagnosticResult.blocked(
+                agent_message="Remittance verification could not be completed.",
+                developer_fields={
+                    "constraint_id": audit_trace["rule_id"] if audit_trace else "LRS_UNKNOWN",
+                    "audit_trace": audit_trace,
+                    "error": result.get("error"),
+                },
+            )
+
+        if audit_trace is None:
+            raise ValueError(
+                "VERIFIED result requires audit_trace — "
+                "use UNVERIFIABLE if no evidence was established."
+            )
+
+        return TaxDiagnosticResult.verified(
+            agent_message="Remittance verified.",
+            developer_fields={
+                "constraint_id": audit_trace["rule_id"],
+                "statute": audit_trace.get("statute"),
+                "jurisdiction": audit_trace.get("jurisdiction"),
+                "audit_trace": audit_trace,
+            },
+            evidence=audit_trace,
+        )
 
     def calculate_tcs(self, amount_inr: Any, purpose: str, is_loan_funded: bool = False) -> Decimal:
         """

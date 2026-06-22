@@ -1,6 +1,15 @@
 from datetime import datetime
 from typing import Dict, Any
 
+from qwed_tax.audit import (
+    CG_DEBT_FUND_50AA,
+    CG_EQUITY_LTCG_112A,
+    CG_EQUITY_STCG_111A,
+    CG_NO_RATE_CONFIGURED,
+    build_trace,
+)
+from qwed_tax.diagnostics import TaxDiagnosticResult
+
 class CapitalGainsGuard:
     """
     Deterministic Guard for Capital Gains Classification (STCG vs LTCG).
@@ -54,17 +63,25 @@ class CapitalGainsGuard:
         claimed_clean = claimed_rate.replace("%", "").strip()
         
         rates = {
-            "equity_LTCG": "12.5", # Changed in Budget 2024 (was 10%)
-            "equity_STCG": "20",   # Changed (was 15%)
-            "debt_LTCG": "SLAB",   # Technically indexed 20% or Slab depending on purchase
-            "debt_STCG": "SLAB"
+            "equity_LTCG": ("12.5", CG_EQUITY_LTCG_112A),
+            "equity_STCG": ("20", CG_EQUITY_STCG_111A),
+            "debt_LTCG": ("SLAB", CG_DEBT_FUND_50AA),
+            "debt_STCG": ("SLAB", CG_DEBT_FUND_50AA),
         }
         
         key = f"{asset_type.lower()}_{term}"
-        expected = rates.get(key)
+        entry = rates.get(key)
         
-        if not expected:
-             return {"verified": False, "error": f"No statutory rate configured for {key}. Cannot verify claimed rate."}
+        if not entry:
+             return {
+                 "verified": False,
+                 "error": f"No statutory rate configured for {key}. Cannot verify claimed rate.",
+                 "audit_trace": build_trace(
+                     CG_NO_RATE_CONFIGURED, "NO_RATE", {"asset_type": asset_type, "term": term}
+                 ),
+             }
+
+        expected, rule_ref = entry
 
         if expected == "SLAB":
             return {
@@ -73,12 +90,56 @@ class CapitalGainsGuard:
                     f"Rate for {key} is subject to slab rates — cannot deterministically "
                     f"verify claimed rate of {claimed_rate}. Taxpayer's slab band is required for verification."
                 ),
+                "audit_trace": build_trace(
+                    rule_ref, "SLAB_RATE", {"asset_type": asset_type, "term": term, "claimed_rate": claimed_rate}
+                ),
             }
             
         if claimed_clean != expected:
             return {
-                "verified": False, 
-                "error": f"Rate Mismatch for {key}: Statutory Rate is {expected}%, LLM claimed {claimed_rate}."
+                "verified": False,
+                "error": f"Rate Mismatch for {key}: Statutory Rate is {expected}%, LLM claimed {claimed_rate}.",
+                "audit_trace": build_trace(
+                    rule_ref, "RATE_MISMATCH", {"asset_type": asset_type, "term": term, "expected": expected, "claimed": claimed_clean}
+                ),
             }
             
-        return {"verified": True}
+        return {
+            "verified": True,
+            "audit_trace": build_trace(
+                rule_ref, "RATE_VERIFIED", {"asset_type": asset_type, "term": term, "expected": expected, "claimed": claimed_clean}
+            ),
+        }
+
+    @staticmethod
+    def to_diagnostic(result: Dict[str, Any]) -> TaxDiagnosticResult:
+        """Convert a legacy verify_tax_rate() dict to TaxDiagnosticResult."""
+        verified = result.get("verified", False)
+        audit_trace = result.get("audit_trace")
+
+        if not verified:
+            return TaxDiagnosticResult.blocked(
+                agent_message="Capital gains tax rate verification could not be completed.",
+                developer_fields={
+                    "constraint_id": audit_trace["rule_id"] if audit_trace else "CG_UNKNOWN",
+                    "audit_trace": audit_trace,
+                    "error": result.get("error"),
+                },
+            )
+
+        if audit_trace is None:
+            raise ValueError(
+                "VERIFIED result requires audit_trace — "
+                "use UNVERIFIABLE if no evidence was established."
+            )
+
+        return TaxDiagnosticResult.verified(
+            agent_message="Capital gains tax rate verified.",
+            developer_fields={
+                "constraint_id": audit_trace["rule_id"],
+                "statute": audit_trace.get("statute"),
+                "jurisdiction": audit_trace.get("jurisdiction"),
+                "audit_trace": audit_trace,
+            },
+            evidence=audit_trace,
+        )

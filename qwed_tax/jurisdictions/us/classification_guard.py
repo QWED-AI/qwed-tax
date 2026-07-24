@@ -1,7 +1,7 @@
 from z3 import Solver, Bool, And, sat, is_true
 from ...models import WorkerClassificationParams, State
 
-class ClassificationGuard:
+class ABCClassificationGuard:
     """
     Verifies Worker Classification (Employee vs Independent Contractor).
     Implements the 'ABC Test' used in CA (AB5), MA, NJ.

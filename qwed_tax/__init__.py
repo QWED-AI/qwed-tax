@@ -31,7 +31,8 @@ from .jurisdictions.us.payroll_guard import PayrollGuard
 from .jurisdictions.us.withholding_guard import WithholdingGuard, W4Form
 from .jurisdictions.us.reciprocity_guard import ReciprocityGuard
 from .jurisdictions.us.form1099_guard import Form1099Guard
-from .jurisdictions.us.classification_guard import ClassificationGuard
+from .jurisdictions.us.classification_guard import ABCClassificationGuard
+from .guards.classification_guard import ClassificationGuard
 
 # India Guards
 from .jurisdictions.india.guards.crypto_guard import CryptoTaxGuard
@@ -86,6 +87,7 @@ __all__ = [  # noqa: RUF022
     "W4Form",
     "ReciprocityGuard",
     "Form1099Guard",
+    "ABCClassificationGuard",
     "ClassificationGuard",
     # India
     "CryptoTaxGuard",

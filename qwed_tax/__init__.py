@@ -52,11 +52,12 @@ from .guards.valuation_guard import ValuationGuard
 from .guards.dtaa_guard import DTAAGuard
 from .guards.transfer_pricing_guard import TransferPricingGuard
 from .guards.poem_guard import PoEMGuard
+from .address_guard import AddressGuard
 
 # Middleware
 from .middleware.gusto_interceptor import QWEDTaxMiddleware
 
-__all__ = [
+__all__ = [  # noqa: RUF022
     "__version__",
     # Models
     "PayrollEntry",
@@ -105,6 +106,7 @@ __all__ = [
     "DTAAGuard",
     "TransferPricingGuard",
     "PoEMGuard",
+    "AddressGuard",
     # Middleware
     "QWEDTaxMiddleware",
 ]

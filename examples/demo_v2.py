@@ -1,6 +1,6 @@
 from decimal import Decimal
 from qwed_tax import (
-    PayrollGuard, ClassificationGuard, 
+    PayrollGuard, ABCClassificationGuard,
     WorkerClassificationParams, State
 )
 
@@ -29,7 +29,7 @@ def run_v2_demo():
 
     # --- 2. ABC Test (Z3 Logic) ---
     print("\n--- 🏗️ Testing ClassificationGuard (ABC Test) ---")
-    cg = ClassificationGuard()
+    cg = ABCClassificationGuard()
     
     # Case: Uber Driver (Classic Misclassification)
     # A: Free control? Maybe.

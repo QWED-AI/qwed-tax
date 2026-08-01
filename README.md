@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logo.svg" alt="QWED Logo" width="140" />
+<img src="assets/logo.png" alt="QWED Logo" width="140" />
 
 # 💸 QWED-Tax
 

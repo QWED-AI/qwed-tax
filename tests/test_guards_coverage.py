@@ -158,6 +158,43 @@ class TestFinancialGuardNumericSafety:
         assert res["verified"] is False
         assert res["error"] == "ytd_sales must be a numeric value."
 
+    def test_nexus_blocks_negative_sales_amount(self):
+        guard = NexusGuard()
+        res = guard.check_nexus_liability("CA", -5000, 0, claimed_collects_tax=False)
+        assert res["verified"] is False
+        assert res["error"] == "ytd_sales must be a non-negative numeric value."
+
+    def test_nexus_blocks_non_string_state(self):
+        guard = NexusGuard()
+        res = guard.check_nexus_liability(42, 100, 0, claimed_collects_tax=False)
+        assert res["verified"] is False
+        assert res["error"] == "state must be a string."
+
+    def test_nexus_blocks_negative_transaction_count(self):
+        guard = NexusGuard()
+        res = guard.check_nexus_liability("NY", 100000, -500, claimed_collects_tax=False)
+        assert res["verified"] is False
+        assert res["error"] == "transaction_count must be a non-negative numeric value."
+
+    def test_nexus_blocks_non_numeric_transaction_count(self):
+        guard = NexusGuard()
+        for bad in ("500", None, [10]):
+            res = guard.check_nexus_liability("NY", 100000, bad, claimed_collects_tax=False)
+            assert res["verified"] is False, f"transaction_count={bad!r} must not verify"
+            assert res["error"] == "transaction_count must be a numeric value."
+
+    def test_nexus_blocks_boolean_transaction_count(self):
+        guard = NexusGuard()
+        res = guard.check_nexus_liability("NY", 100000, True, claimed_collects_tax=False)
+        assert res["verified"] is False
+        assert res["error"] == "transaction_count must be a numeric value."
+
+    def test_nexus_blocks_nan_transaction_count(self):
+        guard = NexusGuard()
+        res = guard.check_nexus_liability("NY", 100000, float("nan"), claimed_collects_tax=False)
+        assert res["verified"] is False
+        assert res["error"] == "transaction_count must be a finite numeric value."
+
     def test_related_party_accepts_decimal_string_rates(self):
         guard = RelatedPartyGuard()
         res = guard.verify_loan_compliance("company", "employee", "8.25", "8.00")

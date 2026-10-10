@@ -1,3 +1,4 @@
+import re
 from enum import Enum
 from typing import Dict, Any, Optional
 
@@ -7,6 +8,34 @@ from qwed_tax.diagnostics import TaxDiagnosticResult
 class WorkerType(Enum):
     EMPLOYEE = "W2"
     CONTRACTOR = "1099"
+
+
+# Closed claim vocabulary. A claim is accepted only when, after removing
+# spaces, hyphens and underscores, it equals one of these keys. Anything else
+# (e.g. "non-employee", "contractor, not W-2") is an invalid claim, never a
+# substring guess.
+_CLAIM_ALIASES: Dict[str, WorkerType] = {
+    "W2": WorkerType.EMPLOYEE,
+    "EMPLOYEE": WorkerType.EMPLOYEE,
+    "1099": WorkerType.CONTRACTOR,
+    "1099NEC": WorkerType.CONTRACTOR,
+    "CONTRACTOR": WorkerType.CONTRACTOR,
+    "INDEPENDENTCONTRACTOR": WorkerType.CONTRACTOR,
+}
+_CLAIM_ALLOWED_CHARS = re.compile(r"[A-Za-z0-9 _-]+")
+_CLAIM_SEPARATORS = re.compile(r"[ _-]+")
+
+# Every fact must be present and a real bool: a missing fact is not evidence
+# of "no employee indicator", and "no"/"false" strings are truthy.
+_REQUIRED_FACTS = ("provides_tools", "reimburses_expenses", "indefinite_relationship")
+
+
+def _canonical_claim(llm_claim: str) -> Optional[WorkerType]:
+    """Map a claim to a WorkerType via the closed alias table, or None."""
+    stripped = llm_claim.strip()
+    if not _CLAIM_ALLOWED_CHARS.fullmatch(stripped):
+        return None
+    return _CLAIM_ALIASES.get(_CLAIM_SEPARATORS.sub("", stripped).upper())
 
 class ClassificationGuard:
     """
@@ -54,14 +83,37 @@ class ClassificationGuard:
         # No employee indicators at all — contractor is safe
         return WorkerType.CONTRACTOR
 
+    @staticmethod
+    def _invalid_facts(facts: Any) -> list:
+        """Return the required fact names that are missing or not bools."""
+        if not isinstance(facts, dict):
+            return list(_REQUIRED_FACTS)
+        return [name for name in _REQUIRED_FACTS if not isinstance(facts.get(name), bool)]
+
     def verify_classification_claim(self, llm_claim: str, facts: Dict[str, Any]) -> Dict[str, Any]:
         """
         Verifies if the LLM's classification matches the deterministic facts.
+
+        Fails closed (verified=False) when any required fact is missing or not
+        a bool, or when the claim is not in the closed claim vocabulary.
         """
+        invalid_facts = self._invalid_facts(facts)
+        if invalid_facts:
+            return {
+                "verified": False,
+                "error": (
+                    "Invalid worker facts: provides_tools, reimburses_expenses and "
+                    f"indefinite_relationship must all be present booleans ({', '.join(invalid_facts)})."
+                ),
+                "audit_trace": build_trace(
+                    IRS_COMMON_LAW, "INVALID_FACTS", {"invalid_facts": invalid_facts}
+                ),
+            }
+
         derived_status = self.verify_worker_status(
-            facts.get("provides_tools", False), # If employer provides tools -> Behavioral Control often implied
-            facts.get("reimburses_expenses", False), # Financial Control
-            facts.get("indefinite_relationship", False) # Type of Relationship
+            facts["provides_tools"],  # If employer provides tools -> Behavioral Control often implied
+            facts["reimburses_expenses"],  # Financial Control
+            facts["indefinite_relationship"],  # Type of Relationship
         )
 
         # Mixed signals — cannot conclusively classify
@@ -87,14 +139,21 @@ class ClassificationGuard:
                 ),
             }
 
-        # Normalize claim
-        claim_normalized = llm_claim.upper()
-        if "W-2" in claim_normalized or "EMPLOYEE" in claim_normalized:
-            claim_normalized = "W2"
-        elif "1099" in claim_normalized or "CONTRACTOR" in claim_normalized:
-            claim_normalized = "1099"
+        # Map the claim through the closed vocabulary; never guess from substrings.
+        claimed_status = _canonical_claim(llm_claim)
+        if claimed_status is None:
+            return {
+                "verified": False,
+                "error": (
+                    "Unrecognized worker classification claim. Expected W2 / EMPLOYEE "
+                    "or 1099 / 1099-NEC / CONTRACTOR / INDEPENDENT CONTRACTOR."
+                ),
+                "audit_trace": build_trace(
+                    IRS_COMMON_LAW, "INVALID_CLAIM", {"derived": derived_status.value, "claimed": llm_claim}
+                ),
+            }
 
-        if derived_status.value != claim_normalized:
+        if derived_status is not claimed_status:
             return {
                 "verified": False,
                 "error": f"Misclassification Risk: Facts indicate {derived_status.value}, but AI claimed {llm_claim}. This creates IRS liability.",

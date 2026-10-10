@@ -1,6 +1,6 @@
 {
     "name": "@qwed-ai/tax",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "description": "The Verification Gate for AI-Generated Tax Decisions",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",

@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] - Unreleased
+
+Security patch release. Upgrading is recommended for all users of `NexusGuard` (Python and npm) and `ClassificationGuard`. A security advisory will be published alongside this release.
+
+### Security
+- **NexusGuard: structured claim required (#57, #62).** `check_nexus_liability` no longer interprets the free-text `llm_decision`. A verified result requires `claimed_collects_tax` as a boolean and is compared against the computed nexus liability. Without it, the result is `computed_only` (not verified). Negative or non-finite sales and transaction counts fail closed. `TaxPreFlight` action `economic_nexus` now requires `claimed_collects_tax`.
+- **npm `NexusGuard` / `TaxPreFlight` (#63, #65).** The npm SDK enforces the same boolean `claimed_collects_tax` claim, fails closed on states that are not in its threshold table, and validates sales data (non-object, non-finite and negative values fail closed). The transaction-count prong only applies to states that have one.
+- **ClassificationGuard: closed claim vocabulary and strict facts.** The worker-classification claim is mapped through a fixed set of values instead of substring matching: `W2` / `W-2` / `EMPLOYEE`, and `1099` / `1099-NEC` / `CONTRACTOR` / `INDEPENDENT CONTRACTOR` (any case; spaces, hyphens and underscores ignored). Any other text fails closed with `INVALID_CLAIM`. `provides_tools`, `reimburses_expenses` and `indefinite_relationship` must all be present booleans; otherwise the result fails closed with `INVALID_FACTS`. This applies to `verify_classification_claim` and to `TaxPreFlight` action `hire`.
+
+### Behaviour change
+- Nexus callers that relied on `llm_decision` strings must pass `claimed_collects_tax: bool`.
+- Classification claims outside the values above (for example `"1099 contractor"` or `"non-employee"`) are now rejected instead of being interpreted. Pass the canonical value (`"W2"` or `"1099"`). Worker facts must be real booleans, not strings such as `"no"`.
+
+### CI
+- The npm SDK test suite now runs on every push and pull request, alongside pytest (#80).
+
+### Tests
+- Regression tests for the nexus structured claim (Python and npm) and for the classification claim vocabulary and fact typing. Python suite: 312 passed; npm suite: 25 passed.
+
 ## [0.2.0] - 2026-06-22
 ### Added
 - **TaxDiagnosticResult** — 3-layer structured diagnostic model (agent message / developer fields / proof ref) with tri-state status (VERIFIED / UNVERIFIABLE / BLOCKED). Closes #39.

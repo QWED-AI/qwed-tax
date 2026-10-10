@@ -228,6 +228,8 @@ if not report["allowed"]:
 
 > ℹ️ A claim is considered verified only when a supported `action` is provided and at least one deterministic check is actually executed.
 
+> ℹ️ `worker_type` must be one of `W2` / `W-2` / `EMPLOYEE` or `1099` / `1099-NEC` / `CONTRACTOR` / `INDEPENDENT CONTRACTOR` (any case). Other text is rejected, not interpreted. All three `worker_facts` must be booleans.
+
 ## 📂 Examples
 Check the `examples/` directory for runnable scripts:
 - `examples/demo_payroll.py`: US FICA & Payroll verification.

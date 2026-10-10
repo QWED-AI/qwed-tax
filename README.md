@@ -195,7 +195,7 @@ import { TaxPreFlight } from '@qwed-ai/tax';
 const result = TaxPreFlight.audit({
   action: "hire",
   worker_type: "1099",
-  worker_facts: { provides_tools: true, reimburses_expenses: true } // implies Employee
+  worker_facts: { provides_tools: true, reimburses_expenses: true, indefinite_relationship: true } // implies Employee
 });
 
 if (!result.allowed) {
@@ -228,7 +228,7 @@ if not report["allowed"]:
 
 > ℹ️ A claim is considered verified only when a supported `action` is provided and at least one deterministic check is actually executed.
 
-> ℹ️ `worker_type` must be one of `W2` / `W-2` / `EMPLOYEE` or `1099` / `1099-NEC` / `CONTRACTOR` / `INDEPENDENT CONTRACTOR` (any case). Other text is rejected, not interpreted. All three `worker_facts` must be booleans.
+> ℹ️ Python: `worker_type` must be one of `W2` / `W-2` / `EMPLOYEE` or `1099` / `1099-NEC` / `CONTRACTOR` / `INDEPENDENT CONTRACTOR` (any case). Other text is rejected, not interpreted. All three `worker_facts` must be booleans. The TypeScript SDK compares `worker_type` exactly, so pass `"W2"` or `"1099"` there.
 
 ## 📂 Examples
 Check the `examples/` directory for runnable scripts:

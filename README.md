@@ -157,22 +157,21 @@ pip install qwed-tax
 
 ## ⚡ Usage
 ```python
-from qwed_tax.verifier import TaxVerifier
+from decimal import Decimal
+from qwed_tax import PayrollGuard, TaxVerifier
 
 # 1. US FICA Check
-us_tax = TaxVerifier(jurisdiction="US")
-# ... usage (facade methods to be added or verified) ...
-
-from qwed_tax.jurisdictions.us import PayrollGuard
 pg = PayrollGuard()
-result = pg.verify_fica_tax(gross_ytd=180000, current=5000, claimed_tax=310)
-print(result.message) 
+result = pg.verify_fica_tax(
+    gross_ytd=Decimal("180000"), current_gross=Decimal("5000"), claimed_ss_tax=Decimal("310.00")
+)
+print(result.message)
 # -> "❌ FICA Error: Expected $68.20 (Hit Limit)"
 
 # 2. India Crypto Check
 in_tax = TaxVerifier(jurisdiction="INDIA")
-res = in_tax.verify_india_crypto(losses={"VDA": -5000}, gains={"BUSINESS": 50000})
-print(res.message) 
+res = in_tax.verify_india_crypto(losses={"VDA": Decimal("-5000")}, gains=None)
+print(res.message)
 # -> "⚠️ Section 115BBH Alert: VDA loss cannot be set off."
 ```
 

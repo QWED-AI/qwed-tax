@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.2.1] - Unreleased
+## [0.2.1] - 2026-10-10
 
 Security patch release. Upgrading is recommended for all users of `NexusGuard` (Python and npm) and `ClassificationGuard`. A security advisory will be published alongside this release.
 

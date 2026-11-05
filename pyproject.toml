@@ -3,7 +3,7 @@ name = "qwed-tax"
 version = "0.2.1"
 description = "The Verification Gate for AI-Generated Tax Decisions"
 authors = [
-    {name = "QWED Team", email = "rahul@qwedai.com"},
+    {name = "QWED Team", email = "rahul@qwedai.tech"},
 ]
 license = {text = "Apache-2.0"}
 readme = "README.md"
@@ -15,8 +15,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://qwedai.com"
-Documentation = "https://docs.qwedai.com/tax"
+Homepage = "https://qwedai.tech"
+Documentation = "https://docs.qwedai.tech/tax"
 Repository = "https://github.com/QWED-AI/qwed-tax"
 Issues = "https://github.com/QWED-AI/qwed-tax/issues"
 Changelog = "https://github.com/QWED-AI/qwed-tax/blob/main/CHANGELOG.md"

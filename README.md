@@ -16,7 +16,7 @@ Not a calculator. Not a filing platform. A deterministic verification layer
 powered by Z3 and Decimal math.
 
 [![Verified by QWED](https://img.shields.io/badge/Verified_by-QWED-00C853?style=flat&logo=checkmarx)](https://github.com/QWED-AI/qwed-tax)
-[![100% Deterministic](https://img.shields.io/badge/100%25_Deterministic-QWED-0066CC?style=flat&logo=checkmarx)](https://docs.qwedai.com/docs/engines/overview#deterministic-first-philosophy)
+[![100% Deterministic](https://img.shields.io/badge/100%25_Deterministic-QWED-0066CC?style=flat&logo=checkmarx)](https://docs.qwedai.tech/docs/engines/overview#deterministic-first-philosophy)
 [![QWED Security](https://img.shields.io/badge/GitHub_Marketplace-QWED_Security_%E2%9C%93-2ea44f?style=flat&logo=github&logoColor=white)](https://github.com/marketplace/qwed-security)
 [![PyPI](https://img.shields.io/pypi/v/qwed-tax?color=blue&logo=pypi&logoColor=white)](https://pypi.org/project/qwed-tax/)
 [![NPM](https://img.shields.io/npm/v/@qwed-ai/tax?color=red&logo=npm&logoColor=white)](https://www.npmjs.com/package/@qwed-ai/tax)
@@ -148,7 +148,7 @@ Unlike cloud APIs (Avalara/Vertex), `qwed-tax` runs **100% Locally**.
 *   **No API Latency:** Checks are instant (microseconds).
 *   **GDPR/DPDP Compliant:** Ideal for sensitive Fintech environments.
 
-> 📖 **See [Determinism Guarantee](https://docs.qwedai.com/docs/engines/overview#deterministic-first-philosophy)** for how QWED ensures 100% reproducible verification.
+> 📖 **See [Determinism Guarantee](https://docs.qwedai.tech/docs/engines/overview#deterministic-first-philosophy)** for how QWED ensures 100% reproducible verification.
 
 ## 📦 Installation
 ```bash

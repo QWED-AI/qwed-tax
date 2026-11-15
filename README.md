@@ -258,6 +258,8 @@ See **[CONTRIBUTING.md](CONTRIBUTING.md)** for guidelines.
 ## 📄 License
 Apache 2.0
 
+Redistributions keep the attribution in [NOTICE](NOTICE), and [TRADEMARKS.md](TRADEMARKS.md) says how the QWED name and logo may be used.
+
 ---
 
 <div align="center">

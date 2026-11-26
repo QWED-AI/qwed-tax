@@ -125,7 +125,7 @@ If a feature requires live data sync, classification-corpus maintenance, or fili
 ### 🇺🇸 United States (IRS)
 1.  **PayrollGuard**: Verifies Gross-to-Net logic and enforces **2025 FICA Limit** ($176,100).
 2.  **ClassificationGuard (IRS Common Law)**: Uses deterministic rules to verify W-2 vs 1099 status.
-3.  **ReciprocityGuard**: Deterministically determines which state should withhold income tax from an employee's residence and work states. It models eight states (CA, FL, MD, NJ, NY, PA, TX, VA) and verifies same-state work among them plus the reciprocal pairs NJ–PA, MD–PA and VA–MD. Any other pair, or a state outside those eight, returns `verified=False`. It doesn't check the amount an employer actually withholds.
+3.  **ReciprocityGuard**: Deterministically determines which state should withhold income tax from an employee's residence and work states. It models eight states (CA, FL, MD, NJ, NY, PA, TX, VA) and verifies same-state work among them plus the reciprocal pairs NJ–PA, MD–PA and VA–MD. Any other pair returns `verified=False`. A state outside those eight also returns `verified=False` from `verify_reciprocity`, and fails `Address` validation before a `WorkArrangement` reaches the guard. It doesn't check the amount an employer actually withholds.
 4.  **NexusGuard**: Verifies **Economic Nexus** thresholds ($100k/$500k sales) to catch missing tax liabilities.
 
 ### 🇮🇳 India (CBDT / CBIC / FEMA)

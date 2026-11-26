@@ -125,7 +125,7 @@ If a feature requires live data sync, classification-corpus maintenance, or fili
 ### 🇺🇸 United States (IRS)
 1.  **PayrollGuard**: Verifies Gross-to-Net logic and enforces **2025 FICA Limit** ($176,100).
 2.  **ClassificationGuard (IRS Common Law)**: Uses deterministic rules to verify W-2 vs 1099 status.
-3.  **ReciprocityGuard**: Deterministically verifies state tax withholding (NY vs NJ rules).
+3.  **ReciprocityGuard**: Deterministically verifies state tax withholding for the reciprocal pairs it models: NJ–PA, MD–PA and VA–MD.
 4.  **NexusGuard**: Verifies **Economic Nexus** thresholds ($100k/$500k sales) to catch missing tax liabilities.
 
 ### 🇮🇳 India (CBDT / CBIC / FEMA)
